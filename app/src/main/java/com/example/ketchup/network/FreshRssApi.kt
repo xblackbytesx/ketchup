@@ -11,6 +11,12 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 class FreshRssApi {
+    companion object {
+        // Compiled once at class-load time; matches <img src="…"> and <img src='…'>
+        // Uses *? (zero-or-more, lazy) so src can be the first or any attribute
+        private val IMG_SRC_REGEX = Regex("""<img\b[^>]*?\bsrc=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+    }
+
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
@@ -72,8 +78,9 @@ class FreshRssApi {
             // Prefer full article body from `content`, fall back to `summary` snippet
             val contentObj = item.optJSONObject("content")
             val summaryObj = item.optJSONObject("summary")
-            val summary = (contentObj?.optString("content")?.takeIf { it.isNotBlank() }
-                ?: summaryObj?.optString("content")?.takeIf { it.isNotBlank() })
+            val contentHtml = contentObj?.optString("content")?.takeIf { it.isNotBlank() }
+            val summaryHtml = summaryObj?.optString("content")?.takeIf { it.isNotBlank() }
+            val summary = contentHtml ?: summaryHtml
 
             val enclosure = item.optJSONArray("enclosure")
             var thumbnailUrl: String? = null
@@ -83,6 +90,12 @@ class FreshRssApi {
                 if (type.startsWith("image/")) {
                     thumbnailUrl = enc.optString("href").takeIf { it.isNotBlank() }
                 }
+            }
+            // Fall back to first <img> found in content or summary HTML
+            // Scan both fields independently — one may have images the other lacks
+            if (thumbnailUrl == null) {
+                thumbnailUrl = contentHtml?.let { extractFirstImageUrl(it) }
+                    ?: summaryHtml?.let { extractFirstImageUrl(it) }
             }
 
             val origin = item.optJSONObject("origin")
@@ -179,6 +192,14 @@ class FreshRssApi {
 
     suspend fun markUnstarred(baseUrl: String, token: String, actionToken: String, articleId: String) {
         editTag(baseUrl, token, actionToken, articleId, add = null, remove = "user/-/state/com.google/starred")
+    }
+
+    private fun extractFirstImageUrl(html: String): String? {
+        // Quick regex scan — runs on already-fetched strings, no extra I/O
+        // Matches both src="…" and src='…' forms; skips data URIs and relative paths
+        return IMG_SRC_REGEX.find(html)
+            ?.groupValues?.getOrNull(1)
+            ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
     }
 
     private suspend fun editTag(

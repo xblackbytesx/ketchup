@@ -21,6 +21,7 @@ class SetupActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         binding = ActivitySetupBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         storage = SecureStorage(this)
 
