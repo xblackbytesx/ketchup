@@ -83,6 +83,12 @@ class SettingsActivity : BaseActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
+        binding.switchFullscreen.isChecked = prefs.fullscreen
+        binding.switchFullscreen.setOnCheckedChangeListener { _, checked ->
+            prefs.fullscreen = checked
+            recreate()  // re-apply window flags immediately
+        }
+
         binding.switchFeaturedLayout.isChecked = prefs.featuredLayout
         binding.switchFeaturedLayout.setOnCheckedChangeListener { _, checked ->
             prefs.featuredLayout = checked

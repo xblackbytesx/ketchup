@@ -24,9 +24,6 @@ import com.example.ketchup.data.model.Article
 import com.example.ketchup.databinding.ActivityArticleReaderBinding
 import com.example.ketchup.ui.BaseActivity
 import com.example.ketchup.ui.ThemeHelper
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -51,17 +48,9 @@ class ArticleReaderActivity : BaseActivity() {
     private var lastScrollY = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Edge-to-edge fullscreen — hides status bar and navigation bar
-        WindowCompat.setDecorFitsSystemWindows(window, false)
         super.onCreate(savedInstanceState)
         binding = ActivityArticleReaderBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        WindowInsetsControllerCompat(window, binding.root).apply {
-            hide(WindowInsetsCompat.Type.systemBars())
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        }
-
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
@@ -100,16 +89,6 @@ class ArticleReaderActivity : BaseActivity() {
         // Snap bars back into view for the new article
         showBars(animate = false)
         lastScrollY = 0
-    }
-
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            WindowInsetsControllerCompat(window, binding.root).apply {
-                hide(WindowInsetsCompat.Type.systemBars())
-                systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            }
-        }
     }
 
     override fun onStop() {

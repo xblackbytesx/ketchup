@@ -30,6 +30,10 @@ class PreferencesManager(context: Context) {
         get() = prefs.getString(KEY_SORT_ORDER, "newest_first") ?: "newest_first"
         set(value) = prefs.edit().putString(KEY_SORT_ORDER, value).apply()
 
+    var fullscreen: Boolean
+        get() = prefs.getBoolean(KEY_FULLSCREEN, true)
+        set(value) = prefs.edit().putBoolean(KEY_FULLSCREEN, value).apply()
+
     companion object {
         private const val KEY_THEME = "theme"
         private const val KEY_SHOW_READ = "show_read_articles"
@@ -37,5 +41,6 @@ class PreferencesManager(context: Context) {
         private const val KEY_CACHE_TTL_HOURS = "cache_ttl_hours"
         private const val KEY_AUTO_MARK_READ = "auto_mark_read"
         private const val KEY_SORT_ORDER = "sort_order"
+        private const val KEY_FULLSCREEN = "fullscreen"
     }
 }
