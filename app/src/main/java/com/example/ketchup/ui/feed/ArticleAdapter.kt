@@ -16,16 +16,31 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class ArticleAdapter(
-    private val useFeaturedLayout: Boolean,
+    useFeaturedLayout: Boolean,
     private val onArticleClick: (Article) -> Unit,
     private val onMarkUnread: (Article) -> Unit
 ) : ListAdapter<Article, RecyclerView.ViewHolder>(DIFF_CALLBACK) {
 
+    var useFeaturedLayout: Boolean = useFeaturedLayout
+        set(value) {
+            field = value
+            notifyDataSetChanged()
+        }
+
     var feedFaviconMap: Map<String, String?> = emptyMap()
 
     companion object {
-        private const val VIEW_TYPE_FEATURED = 0
-        private const val VIEW_TYPE_STANDARD = 1
+        const val VIEW_TYPE_HERO = 0
+        const val VIEW_TYPE_SECONDARY = 1
+        const val VIEW_TYPE_STANDARD = 2
+
+        /**
+         * Repeating group layout when featured mode is on:
+         *   0        → HERO     (full-width, large image + big title + snippet)
+         *   1, 2     → SECONDARY (half-width, side-by-side via GridLayoutManager)
+         *   3 … N-1  → STANDARD
+         */
+        const val GROUP_SIZE = 7
 
         private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<Article>() {
             override fun areItemsTheSame(oldItem: Article, newItem: Article) = oldItem.id == newItem.id
@@ -51,15 +66,20 @@ class ArticleAdapter(
     }
 
     override fun getItemViewType(position: Int): Int {
-        return if (useFeaturedLayout && position == 0) VIEW_TYPE_FEATURED else VIEW_TYPE_STANDARD
+        if (!useFeaturedLayout) return VIEW_TYPE_STANDARD
+        return when (position % GROUP_SIZE) {
+            0 -> VIEW_TYPE_HERO
+            1, 2 -> VIEW_TYPE_SECONDARY
+            else -> VIEW_TYPE_STANDARD
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
-        return if (viewType == VIEW_TYPE_FEATURED) {
-            FeaturedViewHolder(inflater.inflate(R.layout.item_article_featured, parent, false))
-        } else {
-            StandardViewHolder(inflater.inflate(R.layout.item_article_standard, parent, false))
+        return when (viewType) {
+            VIEW_TYPE_HERO -> HeroViewHolder(inflater.inflate(R.layout.item_article_hero, parent, false))
+            VIEW_TYPE_SECONDARY -> SecondaryViewHolder(inflater.inflate(R.layout.item_article_secondary, parent, false))
+            else -> StandardViewHolder(inflater.inflate(R.layout.item_article_standard, parent, false))
         }
     }
 
@@ -70,7 +90,8 @@ class ArticleAdapter(
         val faviconUrl = feedFaviconMap[article.feedId]
 
         when (holder) {
-            is FeaturedViewHolder -> holder.bind(article, timeStr, alpha, faviconUrl)
+            is HeroViewHolder -> holder.bind(article, timeStr, alpha, faviconUrl)
+            is SecondaryViewHolder -> holder.bind(article, timeStr, alpha, faviconUrl)
             is StandardViewHolder -> holder.bind(article, timeStr, alpha, faviconUrl)
         }
 
@@ -81,8 +102,44 @@ class ArticleAdapter(
         }
     }
 
-    inner class FeaturedViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    // ── Hero ─────────────────────────────────────────────────────────────────
+
+    inner class HeroViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val ivThumbnail: ImageView = itemView.findViewById(R.id.iv_thumbnail)
+        private val ivFallback: ImageView = itemView.findViewById(R.id.iv_fallback)
+        private val ivFavicon: ImageView = itemView.findViewById(R.id.iv_favicon)
+        private val tvTitle: TextView = itemView.findViewById(R.id.tv_title)
+        private val tvSnippet: TextView = itemView.findViewById(R.id.tv_snippet)
+        private val tvFeed: TextView = itemView.findViewById(R.id.tv_feed)
+        private val tvDate: TextView = itemView.findViewById(R.id.tv_date)
+
+        fun bind(article: Article, timeStr: String, alpha: Float, faviconUrl: String?) {
+            itemView.alpha = alpha
+            tvTitle.text = article.title
+            tvFeed.text = article.feedTitle
+            tvDate.text = timeStr
+
+            loadFavicon(ivFavicon, faviconUrl)
+
+            if (article.thumbnailUrl != null) {
+                ivFallback.visibility = View.GONE
+                ivThumbnail.load(article.thumbnailUrl) { crossfade(true) }
+            } else {
+                ivFallback.visibility = View.VISIBLE
+                ivThumbnail.load(null as String?)  // cancels any pending request and clears the view
+            }
+
+            val snippet = htmlToSnippet(article.summary)
+            tvSnippet.text = snippet
+            tvSnippet.visibility = if (snippet.isNotBlank()) View.VISIBLE else View.GONE
+        }
+    }
+
+    // ── Secondary (half-width) ────────────────────────────────────────────────
+
+    inner class SecondaryViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val ivThumbnail: ImageView = itemView.findViewById(R.id.iv_thumbnail)
+        private val ivFallback: ImageView = itemView.findViewById(R.id.iv_fallback)
         private val ivFavicon: ImageView = itemView.findViewById(R.id.iv_favicon)
         private val tvTitle: TextView = itemView.findViewById(R.id.tv_title)
         private val tvFeed: TextView = itemView.findViewById(R.id.tv_feed)
@@ -93,22 +150,20 @@ class ArticleAdapter(
             tvTitle.text = article.title
             tvFeed.text = article.feedTitle
             tvDate.text = timeStr
-            if (faviconUrl != null) {
-                ivFavicon.load(faviconUrl) {
-                    crossfade(true)
-                    error(R.drawable.ic_rss)
-                }
-            } else {
-                ivFavicon.setImageResource(R.drawable.ic_rss)
-            }
+
+            loadFavicon(ivFavicon, faviconUrl)
+
             if (article.thumbnailUrl != null) {
-                ivThumbnail.visibility = View.VISIBLE
-                ivThumbnail.load(article.thumbnailUrl)
+                ivFallback.visibility = View.GONE
+                ivThumbnail.load(article.thumbnailUrl) { crossfade(true) }
             } else {
-                ivThumbnail.visibility = View.GONE
+                ivFallback.visibility = View.VISIBLE
+                ivThumbnail.load(null as String?)  // cancels any pending request and clears the view
             }
         }
     }
+
+    // ── Standard ─────────────────────────────────────────────────────────────
 
     inner class StandardViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val ivThumbnail: ImageView = itemView.findViewById(R.id.iv_thumbnail)
@@ -123,23 +178,32 @@ class ArticleAdapter(
             tvTitle.text = article.title
             tvFeed.text = article.feedTitle
             tvDate.text = timeStr
-            if (faviconUrl != null) {
-                ivFavicon.load(faviconUrl) {
-                    crossfade(true)
-                    error(R.drawable.ic_rss)
-                }
-            } else {
-                ivFavicon.setImageResource(R.drawable.ic_rss)
-            }
+
+            loadFavicon(ivFavicon, faviconUrl)
+
             val snippet = htmlToSnippet(article.summary)
             tvSnippet.text = snippet
             tvSnippet.visibility = if (snippet.isNotBlank()) View.VISIBLE else View.GONE
+
             if (article.thumbnailUrl != null) {
                 ivThumbnail.visibility = View.VISIBLE
-                ivThumbnail.load(article.thumbnailUrl)
+                ivThumbnail.load(article.thumbnailUrl) { crossfade(true) }
             } else {
                 ivThumbnail.visibility = View.GONE
             }
+        }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private fun loadFavicon(iv: ImageView, url: String?) {
+        if (url != null) {
+            iv.load(url) {
+                crossfade(true)
+                error(R.drawable.ic_rss)
+            }
+        } else {
+            iv.setImageResource(R.drawable.ic_rss)
         }
     }
 }

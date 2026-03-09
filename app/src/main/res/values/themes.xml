@@ -6,6 +6,9 @@
         <item name="colorOnPrimary">@color/ketchup_on_primary</item>
         <item name="colorPrimaryContainer">@color/ketchup_primary_container</item>
         <item name="colorOnPrimaryContainer">@color/ketchup_on_primary_container</item>
+        <!-- Stable system bar colours in dark mode -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
     <style name="Theme.Ketchup.Light" parent="Theme.Material3.Light.NoActionBar">
@@ -15,11 +18,23 @@
         <item name="colorOnPrimaryContainer">@color/ketchup_on_primary_container</item>
     </style>
 
+    <!--
+        OLED theme: every Material3 surface token is forced to pure black so that
+        AppBarLayout's elevation overlay (colorSurfaceContainer / colorSurfaceContainerHigh…)
+        never produces a visible transition when content scrolls underneath.
+    -->
     <style name="Theme.Ketchup.Oled" parent="Theme.Ketchup">
         <item name="android:colorBackground">@color/ketchup_oled_black</item>
         <item name="colorSurface">@color/ketchup_oled_black</item>
         <item name="colorSurfaceVariant">@color/ketchup_oled_surface</item>
-        <item name="colorSurfaceContainer">@color/ketchup_oled_surface</item>
+        <item name="colorSurfaceContainer">@color/ketchup_oled_black</item>
+        <item name="colorSurfaceContainerLow">@color/ketchup_oled_black</item>
+        <item name="colorSurfaceContainerLowest">@color/ketchup_oled_black</item>
+        <item name="colorSurfaceContainerHigh">@color/ketchup_oled_black</item>
+        <item name="colorSurfaceContainerHighest">@color/ketchup_oled_surface</item>
+        <!-- Keep system bars black in OLED mode -->
+        <item name="android:statusBarColor">@color/ketchup_oled_black</item>
+        <item name="android:navigationBarColor">@color/ketchup_oled_black</item>
     </style>
 
 </resources>

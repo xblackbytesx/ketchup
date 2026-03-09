@@ -9,6 +9,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.ketchup.KetchupApplication
 import com.example.ketchup.R
@@ -68,7 +69,16 @@ class FeedActivity : BaseActivity() {
             onMarkUnread = { article -> viewModel.markUnread(article.id) }
         )
 
-        binding.recyclerView.layoutManager = LinearLayoutManager(this)
+        if (prefs.featuredLayout) {
+            val gridManager = GridLayoutManager(this, 2)
+            gridManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+                override fun getSpanSize(position: Int): Int =
+                    if (adapter.getItemViewType(position) == ArticleAdapter.VIEW_TYPE_SECONDARY) 1 else 2
+            }
+            binding.recyclerView.layoutManager = gridManager
+        } else {
+            binding.recyclerView.layoutManager = LinearLayoutManager(this)
+        }
         binding.recyclerView.adapter = adapter
 
         // Set up nav drawer adapter
@@ -178,6 +188,8 @@ class FeedActivity : BaseActivity() {
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
         menu.findItem(R.id.action_toggle_read)?.title =
             if (viewModel.showRead.value) "Hide Read Articles" else "Show Read Articles"
+        menu.findItem(R.id.action_toggle_featured)?.title =
+            if (prefs.featuredLayout) "Disable Featured Layout" else "Enable Featured Layout"
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -186,6 +198,24 @@ class FeedActivity : BaseActivity() {
         return when (item.itemId) {
             R.id.action_toggle_read -> {
                 viewModel.toggleShowRead()
+                true
+            }
+            R.id.action_toggle_featured -> {
+                val newValue = !prefs.featuredLayout
+                prefs.featuredLayout = newValue
+                adapter.useFeaturedLayout = newValue
+                val layoutManager = if (newValue) {
+                    val gridManager = GridLayoutManager(this, 2)
+                    gridManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+                        override fun getSpanSize(position: Int): Int =
+                            if (adapter.getItemViewType(position) == ArticleAdapter.VIEW_TYPE_SECONDARY) 1 else 2
+                    }
+                    gridManager
+                } else {
+                    LinearLayoutManager(this)
+                }
+                binding.recyclerView.layoutManager = layoutManager
+                invalidateOptionsMenu()
                 true
             }
             R.id.action_settings -> {

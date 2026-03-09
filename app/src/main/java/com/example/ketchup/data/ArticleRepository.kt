@@ -57,11 +57,6 @@ class ArticleRepository(
         return entityFlow.map { entities -> entities.map { it.toDomain() } }
     }
 
-    // Keep backward-compat method used by nothing new, but keep it for safety
-    fun observeArticles(showRead: Boolean): Flow<List<Article>> {
-        return observeArticlesByFilter(NavFilter.AllArticles, showRead)
-    }
-
     suspend fun syncArticles() = withContext(Dispatchers.IO) {
         val baseUrl = secureStorage.serverUrl
         val token = try {
@@ -137,7 +132,7 @@ class ArticleRepository(
         feedDao.upsertAll(entities)
     }
 
-    fun getStartOfDayMs(): Long {
+    private fun getStartOfDayMs(): Long {
         val cal = Calendar.getInstance()
         cal.set(Calendar.HOUR_OF_DAY, 0)
         cal.set(Calendar.MINUTE, 0)

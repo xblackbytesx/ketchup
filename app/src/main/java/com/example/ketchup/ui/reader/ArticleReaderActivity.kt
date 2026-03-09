@@ -102,8 +102,10 @@ class ArticleReaderActivity : BaseActivity() {
         }
 
         binding.webView.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
+            javaScriptEnabled = true      // required for Mercury parser
+            domStorageEnabled = true      // required for Mercury parser
+            allowFileAccess = false       // assets served via AssetLoader, not file://
+            allowContentAccess = false
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false

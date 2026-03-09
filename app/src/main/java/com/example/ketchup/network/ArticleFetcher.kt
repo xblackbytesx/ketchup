@@ -7,6 +7,9 @@ import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
 class ArticleFetcher {
+    companion object {
+        private const val MAX_BODY_BYTES = 5 * 1024 * 1024L  // 5 MB cap
+    }
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -21,7 +24,15 @@ class ArticleFetcher {
                 .build()
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) return@withContext null
-            response.body?.string()
+            val body = response.body ?: return@withContext null
+            // Reject by Content-Length if server declares it's too large
+            val contentLength = body.contentLength()
+            if (contentLength > MAX_BODY_BYTES) return@withContext null
+            // Buffer up to MAX_BODY_BYTES from the stream, then read whatever arrived
+            val source = body.source()
+            source.request(MAX_BODY_BYTES)
+            val size = minOf(source.buffer.size, MAX_BODY_BYTES)
+            source.readUtf8(size)
         } catch (e: Exception) {
             null
         }

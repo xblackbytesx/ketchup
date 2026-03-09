@@ -7,7 +7,12 @@
         android:title="Toggle Read"
         app:showAsAction="never" />
 
-<item
+    <item
+        android:id="@+id/action_toggle_featured"
+        android:title="Featured Layout"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_settings"
         android:title="Settings"
         app:showAsAction="never" />
