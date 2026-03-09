@@ -1,0 +1,31 @@
+services:
+  builder:
+    build: .
+    volumes:
+      - .:/workspace
+      - gradle-cache:/root/.gradle
+    command: gradle assembleDebug
+    working_dir: /workspace
+
+  builder-release:
+    build: .
+    volumes:
+      - .:/workspace
+      - gradle-cache:/root/.gradle
+    command: gradle assembleRelease
+    working_dir: /workspace
+
+  signer:
+    image: eclipse-temurin:17-jdk-jammy
+    volumes:
+      - .:/workspace
+      - ${ANDROID_HOME:-/opt/android-sdk}:/opt/android-sdk
+    environment:
+      - KEY_ALIAS
+      - KEYSTORE_PASSWORD
+      - KEY_PASSWORD
+    working_dir: /workspace
+    entrypoint: ["/workspace/scripts/sign.sh"]
+
+volumes:
+  gradle-cache:

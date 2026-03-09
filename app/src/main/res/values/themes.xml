@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.Ketchup" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/ketchup_primary</item>
+        <item name="colorOnPrimary">@color/ketchup_on_primary</item>
+        <item name="colorPrimaryContainer">@color/ketchup_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/ketchup_on_primary_container</item>
+    </style>
+
+    <style name="Theme.Ketchup.Light" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/ketchup_primary</item>
+        <item name="colorOnPrimary">@color/ketchup_on_primary</item>
+        <item name="colorPrimaryContainer">@color/ketchup_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/ketchup_on_primary_container</item>
+    </style>
+
+    <style name="Theme.Ketchup.Oled" parent="Theme.Ketchup">
+        <item name="android:colorBackground">@color/ketchup_oled_black</item>
+        <item name="colorSurface">@color/ketchup_oled_black</item>
+        <item name="colorSurfaceVariant">@color/ketchup_oled_surface</item>
+        <item name="colorSurfaceContainer">@color/ketchup_oled_surface</item>
+    </style>
+
+</resources>

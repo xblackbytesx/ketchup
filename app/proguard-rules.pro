@@ -1,0 +1,4 @@
+-keep class com.example.ketchup.** { *; }
+-keepattributes *Annotation*
+-dontwarn okhttp3.**
+-dontwarn okio.**

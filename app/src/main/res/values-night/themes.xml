@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Ketchup" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/ketchup_primary</item>
+        <item name="colorOnPrimary">@color/ketchup_on_primary</item>
+        <item name="colorPrimaryContainer">@color/ketchup_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/ketchup_on_primary_container</item>
+        <item name="android:colorBackground">@color/ketchup_background_dark</item>
+        <item name="colorSurface">@color/ketchup_surface_dark</item>
+    </style>
+</resources>
