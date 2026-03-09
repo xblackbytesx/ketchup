@@ -91,12 +91,12 @@ class FreshRssApi {
 
             val categories = item.optJSONArray("categories")
             var isRead = false
+            var isStarred = false
             if (categories != null) {
                 for (j in 0 until categories.length()) {
-                    if (categories.getString(j).endsWith("/state/com.google/read")) {
-                        isRead = true
-                        break
-                    }
+                    val cat = categories.getString(j)
+                    if (cat.endsWith("/state/com.google/read")) isRead = true
+                    if (cat.endsWith("/state/com.google/starred")) isStarred = true
                 }
             }
 
@@ -112,6 +112,7 @@ class FreshRssApi {
                     summary = summary,
                     thumbnailUrl = thumbnailUrl,
                     isRead = isRead,
+                    isStarred = isStarred,
                     fetchedContent = null,
                     fetchedAt = null
                 )
@@ -170,6 +171,14 @@ class FreshRssApi {
 
     suspend fun markUnread(baseUrl: String, token: String, actionToken: String, articleId: String) {
         editTag(baseUrl, token, actionToken, articleId, add = null, remove = "user/-/state/com.google/read")
+    }
+
+    suspend fun markStarred(baseUrl: String, token: String, actionToken: String, articleId: String) {
+        editTag(baseUrl, token, actionToken, articleId, add = "user/-/state/com.google/starred", remove = null)
+    }
+
+    suspend fun markUnstarred(baseUrl: String, token: String, actionToken: String, articleId: String) {
+        editTag(baseUrl, token, actionToken, articleId, add = null, remove = "user/-/state/com.google/starred")
     }
 
     private suspend fun editTag(

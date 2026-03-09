@@ -73,7 +73,7 @@
                 android:alpha="0.5" />
         </LinearLayout>
 
-        <!-- Title -->
+        <!-- Title — minLines=3 ensures both cards in a row are always equal height -->
         <TextView
             android:id="@+id/tv_title"
             android:layout_width="match_parent"
@@ -81,6 +81,7 @@
             android:textSize="13sp"
             android:textStyle="bold"
             android:lineSpacingMultiplier="1.1"
+            android:minLines="3"
             android:maxLines="3"
             android:ellipsize="end" />
 

@@ -16,6 +16,7 @@ data class ArticleEntity(
     val summary: String?,
     val thumbnailUrl: String?,
     val isRead: Boolean,
+    val isStarred: Boolean = false,
     val fetchedContent: String?,
     val fetchedAt: Long?,
     val syncedAt: Long
@@ -31,6 +32,7 @@ data class ArticleEntity(
         summary = summary,
         thumbnailUrl = thumbnailUrl,
         isRead = isRead,
+        isStarred = isStarred,
         fetchedContent = fetchedContent,
         fetchedAt = fetchedAt
     )

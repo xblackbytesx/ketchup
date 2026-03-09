@@ -3,13 +3,12 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fitsSystemWindows="true">
+    android:layout_height="match_parent">
 
     <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:fitsSystemWindows="true"
         app:liftOnScroll="false">
 
         <androidx.appcompat.widget.Toolbar
@@ -21,9 +20,9 @@
     </com.google.android.material.appbar.AppBarLayout>
 
     <FrameLayout
+        android:id="@+id/contentFrame"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+        android:layout_height="match_parent">
 
         <WebView
             android:id="@+id/webView"
@@ -39,13 +38,74 @@
 
     </FrameLayout>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabFetch"
-        android:layout_width="wrap_content"
+    <!-- Bottom action bar — auto-hides on scroll like the toolbar -->
+    <LinearLayout
+        android:id="@+id/bottomBar"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:contentDescription="Fetch full article"
-        app:srcCompat="@android:drawable/ic_menu_manage" />
+        android:layout_gravity="bottom"
+        android:orientation="vertical"
+        android:background="?attr/colorSurface"
+        android:elevation="4dp">
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0.5dp"
+            android:background="?attr/colorOnSurface"
+            android:alpha="0.12" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- Star / Favorite -->
+            <ImageButton
+                android:id="@+id/btnStar"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:src="@drawable/ic_star_outline"
+                android:background="?attr/selectableItemBackground"
+                android:contentDescription="Add to favourites"
+                android:scaleType="center" />
+
+            <!-- Next article -->
+            <ImageButton
+                android:id="@+id/btnNext"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:src="@drawable/ic_skip_next"
+                android:background="?attr/selectableItemBackground"
+                android:contentDescription="Next article"
+                android:scaleType="center" />
+
+            <!-- Fetch full content -->
+            <ImageButton
+                android:id="@+id/btnFetch"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:src="@drawable/ic_article"
+                android:background="?attr/selectableItemBackground"
+                android:contentDescription="Fetch full content"
+                android:scaleType="center" />
+
+            <!-- Share -->
+            <ImageButton
+                android:id="@+id/btnShare"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:src="@drawable/ic_share"
+                android:background="?attr/selectableItemBackground"
+                android:contentDescription="Share article"
+                android:scaleType="center" />
+
+        </LinearLayout>
+
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

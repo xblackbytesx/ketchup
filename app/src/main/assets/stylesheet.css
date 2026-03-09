@@ -20,7 +20,9 @@ body {
 article {
   max-width: 680px;
   margin: 0 auto;
-  padding: 20px 20px 80px;
+  /* padding-top accounts for the floating toolbar (56dp) + a bit of breathing room */
+  /* padding-bottom accounts for the floating bottom bar (56dp) + breathing room    */
+  padding: 76px 20px 80px;
 }
 
 header {

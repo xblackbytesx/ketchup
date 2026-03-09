@@ -62,8 +62,12 @@ class FeedActivity : BaseActivity() {
             useFeaturedLayout = prefs.featuredLayout,
             onArticleClick = { article ->
                 if (!article.isRead) viewModel.markRead(article.id)
+                val currentList = adapter.currentList
+                val position = currentList.indexOf(article).coerceAtLeast(0)
                 val intent = Intent(this, ArticleReaderActivity::class.java)
                     .putExtra(ArticleReaderActivity.EXTRA_ARTICLE, article)
+                    .putStringArrayListExtra(ArticleReaderActivity.EXTRA_ARTICLE_IDS, ArrayList(currentList.map { it.id }))
+                    .putExtra(ArticleReaderActivity.EXTRA_POSITION, position)
                 startActivity(intent)
             },
             onMarkUnread = { article -> viewModel.markUnread(article.id) }

@@ -24,11 +24,17 @@ import com.example.ketchup.data.model.Article
 import com.example.ketchup.databinding.ActivityArticleReaderBinding
 import com.example.ketchup.ui.BaseActivity
 import com.example.ketchup.ui.ThemeHelper
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 class ArticleReaderActivity : BaseActivity() {
     companion object {
-        const val EXTRA_ARTICLE = "extra_article"
+        const val EXTRA_ARTICLE     = "extra_article"
+        const val EXTRA_ARTICLE_IDS = "extra_article_ids"
+        const val EXTRA_POSITION    = "extra_position"
     }
 
     private lateinit var binding: ActivityArticleReaderBinding
@@ -37,18 +43,34 @@ class ArticleReaderActivity : BaseActivity() {
     private lateinit var prefs: PreferencesManager
     private lateinit var renderer: ArticleRenderer
     private lateinit var assetLoader: WebViewAssetLoader
+
+    private var articleIds: List<String> = emptyList()
+    private var position: Int = 0
     private var showingFetchedContent = false
+    private var barsVisible = true
+    private var lastScrollY = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Edge-to-edge fullscreen — hides status bar and navigation bar
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         super.onCreate(savedInstanceState)
         binding = ActivityArticleReaderBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        WindowInsetsControllerCompat(window, binding.root).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         @Suppress("DEPRECATION")
         article = intent.getParcelableExtra(EXTRA_ARTICLE)
             ?: run { finish(); return }
+
+        articleIds = intent.getStringArrayListExtra(EXTRA_ARTICLE_IDS) ?: emptyList()
+        position = intent.getIntExtra(EXTRA_POSITION, 0)
 
         prefs = PreferencesManager(this)
         renderer = ArticleRenderer(this)
@@ -61,13 +83,33 @@ class ArticleReaderActivity : BaseActivity() {
             prefs = prefs
         )
 
-        supportActionBar?.title = article.feedTitle
-        supportActionBar?.subtitle = article.title.take(60)
-
         setupWebView()
-        renderContent()
+        setupScrollBehavior()
+        setupBottomBar()
+        loadArticle(article)
+    }
 
-        binding.fabFetch.setOnClickListener { fetchFullContent() }
+    private fun loadArticle(a: Article) {
+        article = a
+        showingFetchedContent = false
+        supportActionBar?.title = a.feedTitle
+        supportActionBar?.subtitle = a.title.take(60)
+        updateStarIcon()
+        updateNextButton()
+        renderContent()
+        // Snap bars back into view for the new article
+        showBars(animate = false)
+        lastScrollY = 0
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            WindowInsetsControllerCompat(window, binding.root).apply {
+                hide(WindowInsetsCompat.Type.systemBars())
+                systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        }
     }
 
     override fun onStop() {
@@ -82,6 +124,8 @@ class ArticleReaderActivity : BaseActivity() {
         binding.webView.destroy()
         super.onDestroy()
     }
+
+    // ── WebView ───────────────────────────────────────────────────────────────
 
     private fun setupWebView() {
         assetLoader = WebViewAssetLoader.Builder()
@@ -102,9 +146,9 @@ class ArticleReaderActivity : BaseActivity() {
         }
 
         binding.webView.settings.apply {
-            javaScriptEnabled = true      // required for Mercury parser
-            domStorageEnabled = true      // required for Mercury parser
-            allowFileAccess = false       // assets served via AssetLoader, not file://
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            allowFileAccess = false
             allowContentAccess = false
             setSupportZoom(true)
             builtInZoomControls = true
@@ -113,6 +157,99 @@ class ArticleReaderActivity : BaseActivity() {
             useWideViewPort = true
         }
     }
+
+    private fun setupScrollBehavior() {
+        binding.webView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
+            val delta = scrollY - lastScrollY
+            lastScrollY = scrollY
+            if (abs(delta) < 8) return@setOnScrollChangeListener
+            val show = delta < 0 || scrollY == 0
+            if (show != barsVisible) {
+                barsVisible = show
+                animateBars(show)
+            }
+        }
+    }
+
+    private fun animateBars(show: Boolean) {
+        val appBarOffset = if (show) 0f else -binding.appBarLayout.height.toFloat()
+        val bottomOffset = if (show) 0f else binding.bottomBar.height.toFloat()
+
+        binding.appBarLayout.animate().translationY(appBarOffset).setDuration(220).start()
+        binding.bottomBar.animate().translationY(bottomOffset).setDuration(220).start()
+    }
+
+    private fun showBars(animate: Boolean) {
+        barsVisible = true
+        if (animate) {
+            animateBars(true)
+        } else {
+            binding.appBarLayout.translationY = 0f
+            binding.bottomBar.translationY = 0f
+        }
+    }
+
+    // ── Bottom bar ────────────────────────────────────────────────────────────
+
+    private fun setupBottomBar() {
+        binding.btnStar.setOnClickListener {
+            val newStarred = !article.isStarred
+            article = article.copy(isStarred = newStarred)
+            updateStarIcon()
+            lifecycleScope.launch { repository.toggleStar(article.id, newStarred) }
+        }
+
+        binding.btnNext.setOnClickListener {
+            val nextId = articleIds.getOrNull(position + 1) ?: return@setOnClickListener
+            binding.btnNext.isEnabled = false
+            lifecycleScope.launch {
+                val entity = repository.getArticleById(nextId)
+                binding.btnNext.isEnabled = true
+                if (entity != null) {
+                    position++
+                    loadArticle(entity)
+                }
+            }
+        }
+
+        binding.btnFetch.setOnClickListener {
+            if (showingFetchedContent) {
+                showingFetchedContent = false
+                renderContent()
+            } else {
+                fetchFullContent()
+            }
+        }
+
+        binding.btnShare.setOnClickListener {
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, article.url)
+                putExtra(Intent.EXTRA_SUBJECT, article.title)
+            }
+            startActivity(Intent.createChooser(shareIntent, null))
+        }
+    }
+
+    private fun updateStarIcon() {
+        binding.btnStar.setImageResource(
+            if (article.isStarred) R.drawable.ic_star_filled else R.drawable.ic_star_outline
+        )
+    }
+
+    private fun updateNextButton() {
+        val hasNext = articleIds.getOrNull(position + 1) != null
+        binding.btnNext.isEnabled = hasNext
+        binding.btnNext.alpha = if (hasNext) 1f else 0.3f
+    }
+
+    private fun updateFetchIcon() {
+        binding.btnFetch.setImageResource(
+            if (showingFetchedContent) R.drawable.ic_rss else R.drawable.ic_article
+        )
+    }
+
+    // ── Content rendering ─────────────────────────────────────────────────────
 
     private fun resolveColors(): RendererColors {
         return when (prefs.theme) {
@@ -147,17 +284,18 @@ class ArticleReaderActivity : BaseActivity() {
             "https://appassets.androidplatform.net/",
             html, "text/html", "UTF-8", null
         )
+        updateFetchIcon()
         invalidateOptionsMenu()
     }
 
     private fun fetchFullContent() {
-        binding.fabFetch.isEnabled = false
+        binding.btnFetch.isEnabled = false
         binding.progressBar.visibility = View.VISIBLE
 
         lifecycleScope.launch {
             val success = repository.fetchAndCacheContent(article.id)
             binding.progressBar.visibility = View.GONE
-            binding.fabFetch.isEnabled = true
+            binding.btnFetch.isEnabled = true
 
             if (success) {
                 val entity = AppDatabase.getInstance(this@ArticleReaderActivity)
@@ -170,6 +308,7 @@ class ArticleReaderActivity : BaseActivity() {
                         "https://appassets.androidplatform.net/",
                         html, "text/html", "UTF-8", null
                     )
+                    updateFetchIcon()
                     invalidateOptionsMenu()
                 } else {
                     Toast.makeText(this@ArticleReaderActivity, "Could not extract content", Toast.LENGTH_SHORT).show()
@@ -179,6 +318,8 @@ class ArticleReaderActivity : BaseActivity() {
             }
         }
     }
+
+    // ── Menu ──────────────────────────────────────────────────────────────────
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.reader_menu, menu)

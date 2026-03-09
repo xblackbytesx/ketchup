@@ -48,6 +48,9 @@ interface ArticleDao {
     @Query("UPDATE articles SET isRead = :isRead WHERE id = :id")
     suspend fun updateReadState(id: String, isRead: Boolean)
 
+    @Query("UPDATE articles SET isStarred = :isStarred WHERE id = :id")
+    suspend fun updateStarred(id: String, isStarred: Boolean)
+
     @Query("UPDATE articles SET fetchedContent = :content, fetchedAt = :fetchedAt WHERE id = :id")
     suspend fun updateFetchedContent(id: String, content: String, fetchedAt: Long)
 

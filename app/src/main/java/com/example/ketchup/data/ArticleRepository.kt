@@ -102,6 +102,7 @@ class ArticleRepository(
                 summary = article.summary,
                 thumbnailUrl = article.thumbnailUrl,
                 isRead = article.isRead,
+                isStarred = article.isStarred,
                 fetchedContent = existing?.fetchedContent,
                 fetchedAt = existing?.fetchedAt,
                 syncedAt = now
@@ -168,6 +169,19 @@ class ArticleRepository(
         }
     }
 
+    suspend fun toggleStar(articleId: String, starred: Boolean) = withContext(Dispatchers.IO) {
+        dao.updateStarred(articleId, starred)
+        try {
+            val token = freshToken()
+            val actionToken = api.getActionToken(secureStorage.serverUrl, token)
+            if (starred) api.markStarred(secureStorage.serverUrl, token, actionToken, articleId)
+            else api.markUnstarred(secureStorage.serverUrl, token, actionToken, articleId)
+        } catch (e: Exception) {
+            android.util.Log.e("ArticleRepository", "toggleStar failed, reverting", e)
+            dao.updateStarred(articleId, !starred)
+        }
+    }
+
     suspend fun markUnread(articleId: String) = withContext(Dispatchers.IO) {
         dao.updateReadState(articleId, false)
         try {
@@ -189,6 +203,10 @@ class ArticleRepository(
 
     suspend fun clearFetchedContent() = withContext(Dispatchers.IO) {
         dao.clearFetchedContent()
+    }
+
+    suspend fun getArticleById(id: String): Article? = withContext(Dispatchers.IO) {
+        dao.getById(id)?.toDomain()
     }
 
     fun isFetchCacheValid(fetchedAt: Long?, ttlMs: Long): Boolean {
