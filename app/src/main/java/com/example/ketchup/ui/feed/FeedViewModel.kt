@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.ketchup.KetchupApplication
 import com.example.ketchup.data.ArticleRepository
 import com.example.ketchup.data.PreferencesManager
-import com.example.ketchup.data.SecureStorage
 import com.example.ketchup.data.db.AppDatabase
 import com.example.ketchup.data.model.FeedInfo
 import com.example.ketchup.data.model.NavFilter
@@ -16,13 +15,10 @@ import kotlinx.coroutines.launch
 
 class FeedViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = PreferencesManager(application)
-    private val storage = SecureStorage(application)
     private val app = application as KetchupApplication
     private val repository = ArticleRepository(
         db = AppDatabase.getInstance(application),
-        api = app.api,
         fetcher = app.fetcher,
-        secureStorage = storage,
         prefs = prefs
     )
 

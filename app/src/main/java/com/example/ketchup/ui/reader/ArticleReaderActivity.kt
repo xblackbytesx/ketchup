@@ -18,7 +18,6 @@ import com.example.ketchup.KetchupApplication
 import com.example.ketchup.R
 import com.example.ketchup.data.ArticleRepository
 import com.example.ketchup.data.PreferencesManager
-import com.example.ketchup.data.SecureStorage
 import com.example.ketchup.data.db.AppDatabase
 import com.example.ketchup.data.model.Article
 import com.example.ketchup.databinding.ActivityArticleReaderBinding
@@ -66,9 +65,7 @@ class ArticleReaderActivity : BaseActivity() {
         val app = application as KetchupApplication
         repository = ArticleRepository(
             db = AppDatabase.getInstance(this),
-            api = app.api,
             fetcher = app.fetcher,
-            secureStorage = SecureStorage(this),
             prefs = prefs
         )
 

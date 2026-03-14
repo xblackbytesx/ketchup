@@ -17,5 +17,6 @@ data class Article(
     val isRead: Boolean,
     val isStarred: Boolean = false,
     val fetchedContent: String?,
-    val fetchedAt: Long?
+    val fetchedAt: Long?,
+    val sourceFaviconUrl: String? = null
 ) : Parcelable

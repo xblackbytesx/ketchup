@@ -1,14 +1,23 @@
 package com.example.ketchup
 
 import android.app.Application
+import coil.Coil
+import coil.ImageLoader
+import coil.decode.SvgDecoder
 import com.example.ketchup.network.ArticleFetcher
-import com.example.ketchup.network.FreshRssApi
 
 class KetchupApplication : Application() {
     @Volatile
     var isAuthenticated: Boolean = false
 
-    // Shared singletons — one OkHttpClient each, reused across the app
-    val api: FreshRssApi by lazy { FreshRssApi() }
     val fetcher: ArticleFetcher by lazy { ArticleFetcher() }
+
+    override fun onCreate() {
+        super.onCreate()
+        Coil.setImageLoader(
+            ImageLoader.Builder(this)
+                .components { add(SvgDecoder.Factory()) }
+                .build()
+        )
+    }
 }

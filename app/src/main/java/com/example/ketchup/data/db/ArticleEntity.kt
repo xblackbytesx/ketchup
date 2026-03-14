@@ -19,7 +19,8 @@ data class ArticleEntity(
     val isStarred: Boolean = false,
     val fetchedContent: String?,
     val fetchedAt: Long?,
-    val syncedAt: Long
+    val syncedAt: Long,
+    val sourceFaviconUrl: String? = null
 ) {
     fun toDomain(): Article = Article(
         id = id,
@@ -34,6 +35,7 @@ data class ArticleEntity(
         isRead = isRead,
         isStarred = isStarred,
         fetchedContent = fetchedContent,
-        fetchedAt = fetchedAt
+        fetchedAt = fetchedAt,
+        sourceFaviconUrl = sourceFaviconUrl
     )
 }

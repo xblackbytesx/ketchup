@@ -21,22 +21,6 @@ class SecureStorage(context: Context) {
         )
     }
 
-    var serverUrl: String
-        get() = prefs.getString(KEY_SERVER_URL, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_SERVER_URL, value).apply()
-
-    var username: String
-        get() = prefs.getString(KEY_USERNAME, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_USERNAME, value).apply()
-
-    var apiPassword: String
-        get() = prefs.getString(KEY_API_PASSWORD, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_API_PASSWORD, value).apply()
-
-    var authToken: String
-        get() = prefs.getString(KEY_AUTH_TOKEN, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_AUTH_TOKEN, value).apply()
-
     var pinHash: String
         get() = prefs.getString(KEY_PIN_HASH, "") ?: ""
         set(value) = prefs.edit().putString(KEY_PIN_HASH, value).apply()
@@ -61,8 +45,6 @@ class SecureStorage(context: Context) {
         get() = prefs.getInt(KEY_PIN_FAIL_COUNT, 0)
         set(value) = prefs.edit().putInt(KEY_PIN_FAIL_COUNT, value).apply()
 
-    fun isServerConfigured(): Boolean = serverUrl.isNotBlank() && username.isNotBlank() && apiPassword.isNotBlank()
-
     fun isPinConfigured(): Boolean = isPinEnabled && pinHash.isNotBlank()
 
     fun clearAll() {
@@ -70,10 +52,6 @@ class SecureStorage(context: Context) {
     }
 
     companion object {
-        private const val KEY_SERVER_URL = "server_url"
-        private const val KEY_USERNAME = "username"
-        private const val KEY_API_PASSWORD = "api_password"
-        private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_PIN_HASH = "pin_hash"
         private const val KEY_PIN_SALT = "pin_salt"
         private const val KEY_PIN_ENABLED = "pin_enabled"

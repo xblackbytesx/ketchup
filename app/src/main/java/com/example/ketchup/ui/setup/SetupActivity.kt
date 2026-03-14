@@ -6,16 +6,17 @@ import android.view.WindowManager
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import com.example.ketchup.KetchupApplication
-import com.example.ketchup.data.SecureStorage
+import com.example.ketchup.data.ArticleRepository
+import com.example.ketchup.data.PreferencesManager
+import com.example.ketchup.data.db.AppDatabase
 import com.example.ketchup.databinding.ActivitySetupBinding
 import com.example.ketchup.ui.BaseActivity
 import com.example.ketchup.ui.feed.FeedActivity
-import com.example.ketchup.ui.lock.LockActivity
 import kotlinx.coroutines.launch
 
 class SetupActivity : BaseActivity() {
     private lateinit var binding: ActivitySetupBinding
-    private lateinit var storage: SecureStorage
+    private lateinit var repository: ArticleRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -23,40 +24,37 @@ class SetupActivity : BaseActivity() {
         binding = ActivitySetupBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        storage = SecureStorage(this)
+        val app = application as KetchupApplication
+        repository = ArticleRepository(
+            db = AppDatabase.getInstance(this),
+            fetcher = app.fetcher,
+            prefs = PreferencesManager(this)
+        )
 
-        binding.btnSave.setOnClickListener { attemptLogin() }
+        binding.btnSave.setOnClickListener { attemptAddFeed() }
     }
 
-    private fun attemptLogin() {
+    private fun attemptAddFeed() {
         val url = binding.etServerUrl.text.toString().trim().trimEnd('/')
-        val username = binding.etUsername.text.toString().trim()
-        val apiPassword = binding.etApiPassword.text.toString().trim()
 
-        if (url.isBlank() || username.isBlank() || apiPassword.isBlank()) {
-            Toast.makeText(this, "Please fill in all fields", Toast.LENGTH_SHORT).show()
+        if (url.isBlank()) {
+            Toast.makeText(this, "Please enter a feed URL", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            Toast.makeText(this, "URL must start with http:// or https://", Toast.LENGTH_SHORT).show()
             return
         }
 
         binding.btnSave.isEnabled = false
-        val api = (application as KetchupApplication).api
         lifecycleScope.launch {
             try {
-                val token = api.login(url, username, apiPassword)
-                storage.serverUrl = url
-                storage.username = username
-                storage.apiPassword = apiPassword
-                storage.authToken = token
-
-                val intent = if (storage.isPinConfigured()) {
-                    Intent(this@SetupActivity, LockActivity::class.java)
-                } else {
-                    Intent(this@SetupActivity, FeedActivity::class.java)
-                }
-                startActivity(intent)
+                repository.addFeed(url)
+                startActivity(Intent(this@SetupActivity, FeedActivity::class.java))
                 finish()
             } catch (e: Exception) {
-                Toast.makeText(this@SetupActivity, "Login failed: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@SetupActivity, e.message ?: "Failed to add feed", Toast.LENGTH_LONG).show()
                 binding.btnSave.isEnabled = true
             }
         }

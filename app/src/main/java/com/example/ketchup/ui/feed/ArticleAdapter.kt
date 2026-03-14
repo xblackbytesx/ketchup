@@ -27,7 +27,7 @@ class ArticleAdapter(
             notifyDataSetChanged()
         }
 
-    var feedFaviconMap: Map<String, String?> = emptyMap()
+
 
     companion object {
         const val VIEW_TYPE_HERO = 0
@@ -87,12 +87,11 @@ class ArticleAdapter(
         val article = getItem(position)
         val timeStr = formatTimeAgo(article.publishedMs)
         val alpha = if (article.isRead) 0.6f else 1.0f
-        val faviconUrl = feedFaviconMap[article.feedId]
 
         when (holder) {
-            is HeroViewHolder -> holder.bind(article, timeStr, alpha, faviconUrl)
-            is SecondaryViewHolder -> holder.bind(article, timeStr, alpha, faviconUrl)
-            is StandardViewHolder -> holder.bind(article, timeStr, alpha, faviconUrl)
+            is HeroViewHolder -> holder.bind(article, timeStr, alpha, article.sourceFaviconUrl)
+            is SecondaryViewHolder -> holder.bind(article, timeStr, alpha, article.sourceFaviconUrl)
+            is StandardViewHolder -> holder.bind(article, timeStr, alpha, article.sourceFaviconUrl)
         }
 
         holder.itemView.setOnClickListener { onArticleClick(article) }

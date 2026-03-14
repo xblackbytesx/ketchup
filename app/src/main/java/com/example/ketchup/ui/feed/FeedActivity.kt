@@ -22,6 +22,7 @@ import com.example.ketchup.ui.BaseActivity
 import com.example.ketchup.ui.lock.LockActivity
 import com.example.ketchup.ui.reader.ArticleReaderActivity
 import com.example.ketchup.ui.settings.SettingsActivity
+import com.example.ketchup.ui.setup.SetupActivity
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
@@ -141,14 +142,6 @@ class FeedActivity : BaseActivity() {
             }
         }
 
-        // Update article favicon map when feeds change
-        lifecycleScope.launch {
-            viewModel.feeds.collect { feeds ->
-                adapter.feedFaviconMap = feeds.associate { it.id to it.faviconUrl }
-                adapter.notifyDataSetChanged()
-            }
-        }
-
         // Observe feeds + unread counts + navFilter to build drawer items
         lifecycleScope.launch {
             combine(
@@ -220,6 +213,10 @@ class FeedActivity : BaseActivity() {
                 }
                 binding.recyclerView.layoutManager = layoutManager
                 invalidateOptionsMenu()
+                true
+            }
+            R.id.action_add_feed -> {
+                startActivity(Intent(this, SetupActivity::class.java))
                 true
             }
             R.id.action_settings -> {

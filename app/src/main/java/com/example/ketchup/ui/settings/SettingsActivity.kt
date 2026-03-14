@@ -40,9 +40,7 @@ class SettingsActivity : BaseActivity() {
         val app = application as KetchupApplication
         repository = ArticleRepository(
             db = AppDatabase.getInstance(this),
-            api = app.api,
             fetcher = app.fetcher,
-            secureStorage = storage,
             prefs = prefs
         )
 
@@ -53,12 +51,12 @@ class SettingsActivity : BaseActivity() {
     }
 
     private fun setupAccountSection() {
-        binding.tvServerUrl.text = storage.serverUrl
+        binding.tvServerUrl.text = "Standalone RSS reader"
         binding.btnLogout.setOnClickListener {
             AlertDialog.Builder(this)
-                .setTitle("Logout")
-                .setMessage("This will clear all credentials. Continue?")
-                .setPositiveButton("Logout") { _, _ ->
+                .setTitle("Reset App")
+                .setMessage("This will clear all PIN settings and remove all local data. Continue?")
+                .setPositiveButton("Reset") { _, _ ->
                     storage.clearAll()
                     finishAffinity()
                 }
