@@ -10,17 +10,20 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.example.ketchup.R
+import com.example.ketchup.data.model.FeedInfo
 import com.example.ketchup.data.model.NavFilter
 
 class NavDrawerAdapter(
     private val onFilterSelected: (NavFilter) -> Unit,
-    private val onCategoryToggle: (String) -> Unit
+    private val onCategoryToggle: (String) -> Unit,
+    private val onFeedLongPress: (FeedInfo) -> Unit = {}
 ) : ListAdapter<NavItem, RecyclerView.ViewHolder>(DIFF_CALLBACK) {
 
     companion object {
         private const val TYPE_FILTER = 0
         private const val TYPE_CATEGORY_HEADER = 1
         private const val TYPE_FEED_ROW = 2
+        private const val TYPE_SECTION_LABEL = 3
 
         private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<NavItem>() {
             override fun areItemsTheSame(oldItem: NavItem, newItem: NavItem): Boolean {
@@ -32,6 +35,8 @@ class NavDrawerAdapter(
                         oldItem.label == newItem.label
                     oldItem is NavItem.FeedRow && newItem is NavItem.FeedRow ->
                         oldItem.feed.id == newItem.feed.id
+                    oldItem is NavItem.SectionLabel && newItem is NavItem.SectionLabel ->
+                        oldItem.label == newItem.label
                     else -> false
                 }
             }
@@ -47,6 +52,7 @@ class NavDrawerAdapter(
             is NavItem.FilterItem -> TYPE_FILTER
             is NavItem.CategoryHeader -> TYPE_CATEGORY_HEADER
             is NavItem.FeedRow -> TYPE_FEED_ROW
+            is NavItem.SectionLabel -> TYPE_SECTION_LABEL
         }
     }
 
@@ -55,6 +61,7 @@ class NavDrawerAdapter(
         return when (viewType) {
             TYPE_FILTER -> FilterViewHolder(inflater.inflate(R.layout.item_nav_filter, parent, false))
             TYPE_CATEGORY_HEADER -> CategoryViewHolder(inflater.inflate(R.layout.item_nav_category, parent, false))
+            TYPE_SECTION_LABEL -> SectionLabelViewHolder(inflater.inflate(R.layout.item_nav_section, parent, false))
             else -> FeedViewHolder(inflater.inflate(R.layout.item_nav_feed, parent, false))
         }
     }
@@ -64,6 +71,7 @@ class NavDrawerAdapter(
             is NavItem.FilterItem -> (holder as FilterViewHolder).bind(item)
             is NavItem.CategoryHeader -> (holder as CategoryViewHolder).bind(item)
             is NavItem.FeedRow -> (holder as FeedViewHolder).bind(item)
+            is NavItem.SectionLabel -> (holder as SectionLabelViewHolder).bind(item)
         }
     }
 
@@ -108,6 +116,13 @@ class NavDrawerAdapter(
         }
     }
 
+    inner class SectionLabelViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val tvLabel: TextView = itemView.findViewById(R.id.tv_section_label)
+        fun bind(item: NavItem.SectionLabel) {
+            tvLabel.text = item.label
+        }
+    }
+
     inner class FeedViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val ivFavicon: ImageView = itemView.findViewById(R.id.iv_favicon)
         private val tvTitle: TextView = itemView.findViewById(R.id.tv_title)
@@ -138,6 +153,10 @@ class NavDrawerAdapter(
                 onFilterSelected(
                     NavFilter.ByFeed(item.feed.id, item.feed.title, item.feed.faviconUrl)
                 )
+            }
+            itemView.setOnLongClickListener {
+                onFeedLongPress(item.feed)
+                true
             }
         }
     }

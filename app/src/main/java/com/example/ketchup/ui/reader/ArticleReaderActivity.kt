@@ -79,7 +79,6 @@ class ArticleReaderActivity : BaseActivity() {
         article = a
         showingFetchedContent = false
         supportActionBar?.title = a.feedTitle
-        supportActionBar?.subtitle = a.title.take(60)
         updateStarIcon()
         updateNextButton()
         renderContent()
@@ -149,7 +148,7 @@ class ArticleReaderActivity : BaseActivity() {
 
     private fun animateBars(show: Boolean) {
         val appBarOffset = if (show) 0f else -binding.appBarLayout.height.toFloat()
-        val bottomOffset = if (show) 0f else binding.bottomBar.height.toFloat()
+        val bottomOffset = if (show) 0f else (binding.root.height - binding.bottomBar.top).toFloat()
 
         binding.appBarLayout.animate().translationY(appBarOffset).setDuration(220).start()
         binding.bottomBar.animate().translationY(bottomOffset).setDuration(220).start()

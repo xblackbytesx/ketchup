@@ -24,7 +24,7 @@ class ArticleAdapter(
     var useFeaturedLayout: Boolean = useFeaturedLayout
         set(value) {
             field = value
-            notifyDataSetChanged()
+            notifyItemRangeChanged(0, itemCount)
         }
 
 

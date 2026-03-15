@@ -1,9 +1,11 @@
 package com.example.ketchup.ui.settings
 
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
 import com.example.ketchup.KetchupApplication
@@ -17,6 +19,9 @@ import com.example.ketchup.databinding.ActivitySettingsBinding
 import com.example.ketchup.ui.BaseActivity
 import com.example.ketchup.ui.ThemeHelper
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class SettingsActivity : BaseActivity() {
     private lateinit var binding: ActivitySettingsBinding
@@ -24,6 +29,14 @@ class SettingsActivity : BaseActivity() {
     private lateinit var storage: SecureStorage
     private lateinit var authManager: AuthManager
     private lateinit var repository: ArticleRepository
+
+    private val exportLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> if (uri != null) lifecycleScope.launch { doExport(uri) } }
+
+    private val importLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> if (uri != null) lifecycleScope.launch { doImport(uri) } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +60,7 @@ class SettingsActivity : BaseActivity() {
         setupAccountSection()
         setupDisplaySection()
         setupCacheSection()
+        setupDataSection()
         setupSecuritySection()
     }
 
@@ -160,6 +174,47 @@ class SettingsActivity : BaseActivity() {
             } else {
                 storage.isBiometricEnabled = checked
             }
+        }
+    }
+
+    private fun setupDataSection() {
+        binding.btnExportFeeds.setOnClickListener {
+            val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+            exportLauncher.launch("ketchup-feeds-$date.json")
+        }
+        binding.btnImportFeeds.setOnClickListener {
+            importLauncher.launch(arrayOf("application/json", "*/*"))
+        }
+    }
+
+    private suspend fun doExport(uri: Uri) {
+        try {
+            val json = repository.exportFeedsJson()
+            contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+            Toast.makeText(this, "Feeds exported", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private suspend fun doImport(uri: Uri) {
+        try {
+            val json = contentResolver.openInputStream(uri)?.use { stream ->
+                val out = java.io.ByteArrayOutputStream()
+                val buf = ByteArray(4096)
+                var total = 0
+                var n: Int
+                while (stream.read(buf).also { n = it } != -1) {
+                    total += n
+                    if (total > 1_048_576) throw Exception("Backup file too large (max 1 MB)")
+                    out.write(buf, 0, n)
+                }
+                out.toString(Charsets.UTF_8.name())
+            } ?: throw Exception("Could not read file")
+            val count = repository.importFeedsJson(json)
+            Toast.makeText(this, "Imported $count feed${if (count == 1) "" else "s"}", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 

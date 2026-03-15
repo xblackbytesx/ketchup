@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [ArticleEntity::class, FeedEntity::class], version = 4, exportSchema = false)
+@Database(entities = [ArticleEntity::class, FeedEntity::class], version = 5, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun articleDao(): ArticleDao
     abstract fun feedDao(): FeedDao
@@ -36,13 +36,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_articles_feedId` ON `articles` (`feedId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_articles_feedId_isRead` ON `articles` (`feedId`, `isRead`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_articles_publishedMs` ON `articles` (`publishedMs`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_articles_isStarred` ON `articles` (`isStarred`)")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "ketchup.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build().also { INSTANCE = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build().also { INSTANCE = it }
             }
         }
     }

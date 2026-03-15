@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
+@Suppress("DEPRECATION") // EncryptedSharedPreferences/MasterKey deprecated in security-crypto 1.1.0;
+// no stable replacement API exists yet — suppress until androidx.datastore encryption stabilises.
 class SecureStorage(context: Context) {
     private val prefs: SharedPreferences
 

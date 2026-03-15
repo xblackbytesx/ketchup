@@ -49,6 +49,7 @@ class ArticleRepository(
     ): Flow<List<Article>> {
         val startOfDay = getStartOfDayMs()
         val entityFlow: Flow<List<ArticleEntity>> = when {
+            navFilter is NavFilter.Starred -> dao.observeStarred()
             navFilter is NavFilter.Today && showRead -> dao.observeToday(startOfDay)
             navFilter is NavFilter.Today && !showRead -> dao.observeTodayUnread(startOfDay)
             navFilter is NavFilter.ByFeed && showRead -> dao.observeByFeed(navFilter.feedId)
@@ -64,15 +65,18 @@ class ArticleRepository(
         return entityFlow.map { entities -> entities.map { it.toDomain() } }
     }
 
-    suspend fun syncArticles() = withContext(Dispatchers.IO) {
+    suspend fun syncArticles(): Int = withContext(Dispatchers.IO) {
         val feeds = feedDao.getAllOnce()
+        var failures = 0
         feeds.forEach { feed ->
             try {
                 syncFeed(feed)
             } catch (e: Exception) {
                 Log.w("ArticleRepository", "syncFeed failed for ${feed.feedUrl}", e)
+                failures++
             }
         }
+        failures
     }
 
     private suspend fun syncFeed(feed: FeedEntity) {
@@ -84,8 +88,9 @@ class ArticleRepository(
         }
 
         val now = System.currentTimeMillis()
+        val existing = dao.getByFeedId(feed.id).associateBy { it.id }
         val entities = parsed.articles.map { article ->
-            val existing = dao.getById(article.id)
+            val prev = existing[article.id]
             ArticleEntity(
                 id = article.id,
                 title = article.title,
@@ -96,10 +101,10 @@ class ArticleRepository(
                 feedId = feed.id,
                 summary = article.summary,
                 thumbnailUrl = article.thumbnailUrl,
-                isRead = existing?.isRead ?: false,
-                isStarred = existing?.isStarred ?: false,
-                fetchedContent = article.content ?: existing?.fetchedContent,
-                fetchedAt = if (article.content != null) now else existing?.fetchedAt,
+                isRead = prev?.isRead ?: false,
+                isStarred = prev?.isStarred ?: false,
+                fetchedContent = article.content ?: prev?.fetchedContent,
+                fetchedAt = if (article.content != null) now else prev?.fetchedAt,
                 syncedAt = now,
                 sourceFaviconUrl = article.sourceFaviconUrl
             )
@@ -182,5 +187,53 @@ class ArticleRepository(
     fun isFetchCacheValid(fetchedAt: Long?, ttlMs: Long): Boolean {
         if (fetchedAt == null) return false
         return System.currentTimeMillis() - fetchedAt < ttlMs
+    }
+
+    suspend fun deleteFeed(feedId: String) = withContext(Dispatchers.IO) {
+        dao.deleteByFeedId(feedId)
+        feedDao.deleteById(feedId)
+    }
+
+    suspend fun updateFeed(feedId: String, title: String, categoryLabel: String) = withContext(Dispatchers.IO) {
+        feedDao.updateTitleAndCategory(feedId, title, categoryLabel)
+    }
+
+    suspend fun exportFeedsJson(): String = withContext(Dispatchers.IO) {
+        val feeds = feedDao.getAllOnce()
+        val arr = org.json.JSONArray()
+        for (f in feeds) {
+            arr.put(org.json.JSONObject().apply {
+                put("title", f.title)
+                put("feed_url", f.feedUrl)
+                put("site_url", f.siteUrl)
+                put("favicon_url", f.faviconUrl ?: org.json.JSONObject.NULL)
+                put("category_label", f.categoryLabel)
+            })
+        }
+        org.json.JSONObject().apply {
+            put("version", 1)
+            put("feeds", arr)
+        }.toString(2)
+    }
+
+    suspend fun importFeedsJson(json: String): Int = withContext(Dispatchers.IO) {
+        val root = org.json.JSONObject(json)
+        val arr = root.getJSONArray("feeds")
+        val entities = mutableListOf<FeedEntity>()
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            val feedUrl = obj.getString("feed_url")
+            if (feedUrl.isBlank()) continue
+            entities += FeedEntity(
+                id = feedUrl,
+                title = obj.optString("title", feedUrl),
+                feedUrl = feedUrl,
+                siteUrl = obj.optString("site_url", ""),
+                faviconUrl = obj.optString("favicon_url").takeIf { it.isNotEmpty() },
+                categoryLabel = obj.optString("category_label", "")
+            )
+        }
+        feedDao.upsertAll(entities)
+        entities.size
     }
 }

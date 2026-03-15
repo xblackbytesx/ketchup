@@ -19,4 +19,10 @@ interface FeedDao {
 
     @Query("DELETE FROM feeds")
     suspend fun deleteAll()
+
+    @Query("DELETE FROM feeds WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("UPDATE feeds SET title = :title, categoryLabel = :categoryLabel WHERE id = :id")
+    suspend fun updateTitleAndCategory(id: String, title: String, categoryLabel: String)
 }

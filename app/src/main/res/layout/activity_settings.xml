@@ -128,6 +128,40 @@
             <View android:layout_width="match_parent" android:layout_height="1dp"
                 android:background="?attr/colorOutline" android:layout_marginBottom="16dp" />
 
+            <!-- Data Section -->
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="DATA" android:textStyle="bold" android:textSize="12sp"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="Export configured feeds to a JSON file" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_export_feeds"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Export"
+                    style="@style/Widget.Material3.Button.OutlinedButton" />
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:text="Import feeds from a JSON file" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_import_feeds"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Import"
+                    style="@style/Widget.Material3.Button.OutlinedButton" />
+            </LinearLayout>
+
+            <View android:layout_width="match_parent" android:layout_height="1dp"
+                android:background="?attr/colorOutline" android:layout_marginBottom="16dp" />
+
             <!-- Security Section -->
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:text="SECURITY" android:textStyle="bold" android:textSize="12sp"

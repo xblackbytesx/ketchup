@@ -22,17 +22,18 @@ class ArticleFetcher {
                 .url(url)
                 .header("User-Agent", "Mozilla/5.0 (Linux; Android 14)")
                 .build()
-            val response = client.newCall(request).execute()
-            if (!response.isSuccessful) return@withContext null
-            val body = response.body ?: return@withContext null
-            // Reject by Content-Length if server declares it's too large
-            val contentLength = body.contentLength()
-            if (contentLength > MAX_BODY_BYTES) return@withContext null
-            // Buffer up to MAX_BODY_BYTES from the stream, then read whatever arrived
-            val source = body.source()
-            source.request(MAX_BODY_BYTES)
-            val size = minOf(source.buffer.size, MAX_BODY_BYTES)
-            source.readUtf8(size)
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext null
+                val body = response.body ?: return@withContext null
+                // Reject by Content-Length if server declares it's too large
+                val contentLength = body.contentLength()
+                if (contentLength > MAX_BODY_BYTES) return@withContext null
+                // Buffer up to MAX_BODY_BYTES from the stream, then read whatever arrived
+                val source = body.source()
+                source.request(MAX_BODY_BYTES)
+                val size = minOf(source.buffer.size, MAX_BODY_BYTES)
+                source.readUtf8(size)
+            }
         } catch (e: Exception) {
             null
         }
