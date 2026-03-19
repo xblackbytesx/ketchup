@@ -1,16 +1,23 @@
 package com.example.ketchup.ui.feed
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.widget.EditText
+import android.widget.LinearLayout
 import androidx.activity.viewModels
 import androidx.appcompat.app.ActionBarDrawerToggle
+import androidx.appcompat.app.AlertDialog
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.ketchup.KetchupApplication
 import com.example.ketchup.R
 import com.example.ketchup.data.PreferencesManager
@@ -22,6 +29,8 @@ import com.example.ketchup.ui.BaseActivity
 import com.example.ketchup.ui.lock.LockActivity
 import com.example.ketchup.ui.reader.ArticleReaderActivity
 import com.example.ketchup.ui.settings.SettingsActivity
+import com.example.ketchup.ui.setup.SetupActivity
+import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
@@ -65,7 +74,7 @@ class FeedActivity : BaseActivity() {
                 val currentList = adapter.currentList
                 val position = currentList.indexOf(article).coerceAtLeast(0)
                 val intent = Intent(this, ArticleReaderActivity::class.java)
-                    .putExtra(ArticleReaderActivity.EXTRA_ARTICLE, article)
+                    .putExtra(ArticleReaderActivity.EXTRA_ARTICLE_ID, article.id)
                     .putStringArrayListExtra(ArticleReaderActivity.EXTRA_ARTICLE_IDS, ArrayList(currentList.map { it.id }))
                     .putExtra(ArticleReaderActivity.EXTRA_POSITION, position)
                 startActivity(intent)
@@ -85,6 +94,26 @@ class FeedActivity : BaseActivity() {
         }
         binding.recyclerView.adapter = adapter
 
+        // FAB: show when scrolled past a few items, hide when back at top
+        binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                val firstVisible = (recyclerView.layoutManager as? LinearLayoutManager)
+                    ?.findFirstVisibleItemPosition()
+                    ?: (recyclerView.layoutManager as? GridLayoutManager)
+                        ?.findFirstVisibleItemPosition()
+                    ?: 0
+                if (firstVisible > 3) {
+                    showFab()
+                } else {
+                    hideFab()
+                }
+            }
+        })
+        binding.fabScrollTop.setOnClickListener {
+            binding.recyclerView.scrollToPosition(0)
+            hideFab()
+        }
+
         // Set up nav drawer adapter
         navDrawerAdapter = NavDrawerAdapter(
             onFilterSelected = { filter ->
@@ -98,7 +127,8 @@ class FeedActivity : BaseActivity() {
                     expandedCategories.add(label)
                 }
                 rebuildNavItems()
-            }
+            },
+            onFeedLongPress = { feed -> showFeedOptions(feed) }
         )
 
         binding.navDrawer.rvNav.layoutManager = LinearLayoutManager(this)
@@ -107,6 +137,7 @@ class FeedActivity : BaseActivity() {
         binding.swipeRefresh.setOnRefreshListener { viewModel.refresh() }
 
         // Observe UI state
+        var wasRefreshing = false
         lifecycleScope.launch {
             viewModel.uiState.collectLatest { state ->
                 when (state) {
@@ -121,6 +152,10 @@ class FeedActivity : BaseActivity() {
                         binding.swipeRefresh.isRefreshing = state.isRefreshing
                         adapter.submitList(state.articles)
                         binding.tvEmptyState.visibility = if (state.articles.isEmpty()) View.VISIBLE else View.GONE
+                        if (wasRefreshing && !state.isRefreshing && state.articles.isNotEmpty()) {
+                            showFab()
+                        }
+                        wasRefreshing = state.isRefreshing
                     }
                     is FeedUiState.Error -> {
                         binding.progressBar.visibility = View.GONE
@@ -128,6 +163,7 @@ class FeedActivity : BaseActivity() {
                         binding.errorText.text = state.message
                         binding.tvEmptyState.visibility = View.GONE
                         binding.swipeRefresh.isRefreshing = false
+                        wasRefreshing = false
                     }
                 }
             }
@@ -138,14 +174,6 @@ class FeedActivity : BaseActivity() {
             viewModel.navFilter.collect { filter ->
                 supportActionBar?.title = filter.displayName()
                 invalidateOptionsMenu()
-            }
-        }
-
-        // Update article favicon map when feeds change
-        lifecycleScope.launch {
-            viewModel.feeds.collect { feeds ->
-                adapter.feedFaviconMap = feeds.associate { it.id to it.faviconUrl }
-                adapter.notifyDataSetChanged()
             }
         }
 
@@ -166,6 +194,72 @@ class FeedActivity : BaseActivity() {
         lifecycleScope.launch {
             viewModel.showRead.collect { invalidateOptionsMenu() }
         }
+
+        lifecycleScope.launch {
+            viewModel.syncError.collect { message ->
+                Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun showFab() {
+        binding.fabScrollTop.show()
+    }
+
+    private fun hideFab() {
+        binding.fabScrollTop.hide()
+    }
+
+    private fun showFeedOptions(feed: FeedInfo) {
+        val options = arrayOf("Edit Feed", "Copy URL", "Remove Feed")
+        AlertDialog.Builder(this)
+            .setTitle(feed.title)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showEditFeedDialog(feed)
+                    1 -> {
+                        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("Feed URL", feed.feedUrl))
+                        Snackbar.make(binding.root, "URL copied", Snackbar.LENGTH_SHORT).show()
+                    }
+                    2 -> AlertDialog.Builder(this)
+                        .setTitle("Remove feed")
+                        .setMessage("Remove \"${feed.title}\"? This will also delete all its cached articles.")
+                        .setPositiveButton("Remove") { _, _ -> viewModel.deleteFeed(feed.id) }
+                        .setNegativeButton("Cancel", null)
+                        .show()
+                }
+            }
+            .show()
+    }
+
+    private fun showEditFeedDialog(feed: FeedInfo) {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val pad = (16 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad / 2, pad, 0)
+        }
+        val etTitle = EditText(this).apply {
+            hint = "Title"
+            setText(feed.title)
+        }
+        val etCategory = EditText(this).apply {
+            hint = "Category (leave blank for none)"
+            setText(feed.categoryLabel)
+        }
+        container.addView(etTitle)
+        container.addView(etCategory)
+
+        AlertDialog.Builder(this)
+            .setTitle("Edit Feed")
+            .setView(container)
+            .setPositiveButton("Save") { _, _ ->
+                val newTitle = etTitle.text.toString().trim().ifEmpty { feed.title }
+                val newCategory = etCategory.text.toString().trim()
+                viewModel.updateFeed(feed.id, newTitle, newCategory)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun rebuildNavItems() {
@@ -222,6 +316,10 @@ class FeedActivity : BaseActivity() {
                 invalidateOptionsMenu()
                 true
             }
+            R.id.action_add_feed -> {
+                startActivity(Intent(this, SetupActivity::class.java))
+                true
+            }
             R.id.action_settings -> {
                 startActivity(Intent(this, SettingsActivity::class.java))
                 true
@@ -260,10 +358,23 @@ class FeedActivity : BaseActivity() {
                     unreadCount = 0
                 )
             )
+            items.add(
+                NavItem.FilterItem(
+                    filter = NavFilter.Starred,
+                    label = "Starred",
+                    iconRes = android.R.drawable.btn_star_big_on,
+                    isSelected = navFilter is NavFilter.Starred,
+                    unreadCount = 0
+                )
+            )
 
             // Group feeds by category
             val categorized = feeds.filter { it.categoryLabel.isNotBlank() }.groupBy { it.categoryLabel }
             val uncategorized = feeds.filter { it.categoryLabel.isBlank() }
+
+            if (feeds.isNotEmpty()) {
+                items.add(NavItem.SectionLabel("Feeds"))
+            }
 
             // Categories section
             categorized.keys.sorted().forEach { label ->

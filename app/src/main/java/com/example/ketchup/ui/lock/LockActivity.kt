@@ -2,7 +2,6 @@ package com.example.ketchup.ui.lock
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.WindowManager
 import com.example.ketchup.KetchupApplication
 import com.example.ketchup.auth.AuthManager
 import com.example.ketchup.auth.BiometricHelper
@@ -22,7 +21,6 @@ class LockActivity : BaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         binding = ActivityLockBinding.inflate(layoutInflater)
         setContentView(binding.root)
 

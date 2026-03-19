@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
+@Suppress("DEPRECATION") // EncryptedSharedPreferences/MasterKey deprecated in security-crypto 1.1.0;
+// no stable replacement API exists yet — suppress until androidx.datastore encryption stabilises.
 class SecureStorage(context: Context) {
     private val prefs: SharedPreferences
 
@@ -20,22 +22,6 @@ class SecureStorage(context: Context) {
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
     }
-
-    var serverUrl: String
-        get() = prefs.getString(KEY_SERVER_URL, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_SERVER_URL, value).apply()
-
-    var username: String
-        get() = prefs.getString(KEY_USERNAME, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_USERNAME, value).apply()
-
-    var apiPassword: String
-        get() = prefs.getString(KEY_API_PASSWORD, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_API_PASSWORD, value).apply()
-
-    var authToken: String
-        get() = prefs.getString(KEY_AUTH_TOKEN, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_AUTH_TOKEN, value).apply()
 
     var pinHash: String
         get() = prefs.getString(KEY_PIN_HASH, "") ?: ""
@@ -61,19 +47,34 @@ class SecureStorage(context: Context) {
         get() = prefs.getInt(KEY_PIN_FAIL_COUNT, 0)
         set(value) = prefs.edit().putInt(KEY_PIN_FAIL_COUNT, value).apply()
 
-    fun isServerConfigured(): Boolean = serverUrl.isNotBlank() && username.isNotBlank() && apiPassword.isNotBlank()
-
     fun isPinConfigured(): Boolean = isPinEnabled && pinHash.isNotBlank()
 
+    fun setPinAtomic(salt: String, hash: String) {
+        prefs.edit()
+            .putString(KEY_PIN_SALT, salt)
+            .putString(KEY_PIN_HASH, hash)
+            .putBoolean(KEY_PIN_ENABLED, true)
+            .putInt(KEY_PIN_FAIL_COUNT, 0)
+            .putLong(KEY_PIN_LOCKOUT_END, 0L)
+            .commit()
+    }
+
+    fun clearPinAtomic() {
+        prefs.edit()
+            .putString(KEY_PIN_HASH, "")
+            .putString(KEY_PIN_SALT, "")
+            .putBoolean(KEY_PIN_ENABLED, false)
+            .putBoolean(KEY_BIOMETRIC_ENABLED, false)
+            .putInt(KEY_PIN_FAIL_COUNT, 0)
+            .putLong(KEY_PIN_LOCKOUT_END, 0L)
+            .commit()
+    }
+
     fun clearAll() {
-        prefs.edit().clear().apply()
+        prefs.edit().clear().commit()
     }
 
     companion object {
-        private const val KEY_SERVER_URL = "server_url"
-        private const val KEY_USERNAME = "username"
-        private const val KEY_API_PASSWORD = "api_password"
-        private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_PIN_HASH = "pin_hash"
         private const val KEY_PIN_SALT = "pin_salt"
         private const val KEY_PIN_ENABLED = "pin_enabled"

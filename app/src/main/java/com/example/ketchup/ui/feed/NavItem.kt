@@ -23,4 +23,6 @@ sealed class NavItem {
         val isSelected: Boolean,
         val unreadCount: Int
     ) : NavItem()
+
+    data class SectionLabel(val label: String) : NavItem()
 }

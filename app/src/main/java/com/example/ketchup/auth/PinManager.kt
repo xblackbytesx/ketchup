@@ -25,19 +25,19 @@ class PinManager(private val storage: SecureStorage) {
         val salt = ByteArray(16).also { random.nextBytes(it) }
         val saltB64 = Base64.encodeToString(salt, Base64.NO_WRAP)
         val hash = hashPin(pin, salt)
-        storage.pinSalt = saltB64
-        storage.pinHash = hash
-        storage.isPinEnabled = true
-        storage.pinFailCount = 0
-        storage.pinLockoutEnd = 0L
+        storage.setPinAtomic(saltB64, hash)
     }
 
     fun verifyPin(pin: String): PinVerifyResult {
+        if (!storage.isPinConfigured()) return PinVerifyResult.Wrong(0)
+
         val now = System.currentTimeMillis()
         val lockoutEnd = storage.pinLockoutEnd
         if (lockoutEnd > now) return PinVerifyResult.LockedOut(lockoutEnd)
 
-        val salt = Base64.decode(storage.pinSalt, Base64.NO_WRAP)
+        val saltStr = storage.pinSalt
+        if (saltStr.isBlank()) return PinVerifyResult.Wrong(0)
+        val salt = Base64.decode(saltStr, Base64.NO_WRAP)
         val expected = storage.pinHash
         val actual = hashPin(pin, salt)
 
@@ -65,12 +65,7 @@ class PinManager(private val storage: SecureStorage) {
     }
 
     fun clearPin() {
-        storage.pinHash = ""
-        storage.pinSalt = ""
-        storage.isPinEnabled = false
-        storage.isBiometricEnabled = false
-        storage.pinFailCount = 0
-        storage.pinLockoutEnd = 0L
+        storage.clearPinAtomic()
     }
 
     private fun hashPin(pin: String, salt: ByteArray): String {

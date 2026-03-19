@@ -14,9 +14,9 @@ RUN mkdir -p ${ANDROID_HOME}/cmdline-tools && \
 RUN yes | sdkmanager --licenses && \
     sdkmanager "platform-tools" "build-tools;35.0.0" "platforms;android-35"
 
-RUN wget -q https://services.gradle.org/distributions/gradle-8.10.2-bin.zip -O /tmp/gradle.zip && \
+RUN wget -q https://services.gradle.org/distributions/gradle-8.11.1-bin.zip -O /tmp/gradle.zip && \
     unzip -q /tmp/gradle.zip -d /opt && \
-    ln -s /opt/gradle-8.10.2/bin/gradle /usr/local/bin/gradle && \
+    ln -s /opt/gradle-8.11.1/bin/gradle /usr/local/bin/gradle && \
     rm /tmp/gradle.zip
 
 WORKDIR /workspace

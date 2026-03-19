@@ -59,4 +59,13 @@ interface ArticleDao {
 
     @Query("UPDATE articles SET fetchedContent = NULL, fetchedAt = NULL WHERE fetchedAt IS NOT NULL")
     suspend fun clearFetchedContent()
+
+    @Query("SELECT * FROM articles WHERE isStarred = 1 ORDER BY publishedMs DESC")
+    fun observeStarred(): Flow<List<ArticleEntity>>
+
+    @Query("SELECT * FROM articles WHERE feedId = :feedId")
+    suspend fun getByFeedId(feedId: String): List<ArticleEntity>
+
+    @Query("DELETE FROM articles WHERE feedId = :feedId")
+    suspend fun deleteByFeedId(feedId: String)
 }

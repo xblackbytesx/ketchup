@@ -75,6 +75,17 @@
 
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabScrollTop"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="16dp"
+            android:contentDescription="Scroll to top"
+            app:srcCompat="@drawable/ic_arrow_up"
+            android:visibility="gone"
+            app:elevation="6dp" />
+
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
     <!-- Navigation drawer -->

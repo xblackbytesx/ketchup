@@ -5,26 +5,18 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ketchup.KetchupApplication
-import com.example.ketchup.data.ArticleRepository
 import com.example.ketchup.data.PreferencesManager
-import com.example.ketchup.data.SecureStorage
-import com.example.ketchup.data.db.AppDatabase
 import com.example.ketchup.data.model.FeedInfo
 import com.example.ketchup.data.model.NavFilter
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class FeedViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = PreferencesManager(application)
-    private val storage = SecureStorage(application)
     private val app = application as KetchupApplication
-    private val repository = ArticleRepository(
-        db = AppDatabase.getInstance(application),
-        api = app.api,
-        fetcher = app.fetcher,
-        secureStorage = storage,
-        prefs = prefs
-    )
+    private val repository = app.repository
 
     private val _showRead = MutableStateFlow(prefs.showReadArticles)
     val showRead: StateFlow<Boolean> = _showRead.asStateFlow()
@@ -34,6 +26,9 @@ class FeedViewModel(application: Application) : AndroidViewModel(application) {
 
     // Separate refresh flag — not entangled with the article list flow
     private val _isRefreshing = MutableStateFlow(false)
+
+    private val _syncError = Channel<String>(Channel.BUFFERED)
+    val syncError: Flow<String> = _syncError.receiveAsFlow()
 
     val feeds: StateFlow<List<FeedInfo>> = repository.observeFeeds()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -45,6 +40,7 @@ class FeedViewModel(application: Application) : AndroidViewModel(application) {
         _navFilter.value = filter
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<FeedUiState> = combine(_navFilter, _showRead, feeds) { filter, showRead, allFeeds ->
         val feedIds = if (filter is NavFilter.ByCategory) {
             allFeeds.filter { it.categoryLabel == filter.label }.map { it.id }
@@ -69,9 +65,13 @@ class FeedViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
-                repository.syncArticles()
+                val failures = repository.syncArticles()
+                if (failures > 0) {
+                    _syncError.trySend("$failures feed${if (failures == 1) "" else "s"} failed to sync")
+                }
             } catch (e: Exception) {
                 Log.e("FeedViewModel", "Sync error", e)
+                _syncError.trySend("Sync failed")
             } finally {
                 _isRefreshing.value = false
             }
@@ -90,5 +90,18 @@ class FeedViewModel(application: Application) : AndroidViewModel(application) {
 
     fun markUnread(articleId: String) {
         viewModelScope.launch { repository.markUnread(articleId) }
+    }
+
+    fun deleteFeed(feedId: String) {
+        viewModelScope.launch {
+            repository.deleteFeed(feedId)
+            if (_navFilter.value.let { it is NavFilter.ByFeed && it.feedId == feedId }) {
+                _navFilter.value = NavFilter.AllArticles
+            }
+        }
+    }
+
+    fun updateFeed(feedId: String, title: String, categoryLabel: String) {
+        viewModelScope.launch { repository.updateFeed(feedId, title, categoryLabel) }
     }
 }

@@ -1,10 +1,19 @@
 package com.example.ketchup.data.db
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.ketchup.data.model.Article
 
-@Entity(tableName = "articles")
+@Entity(
+    tableName = "articles",
+    indices = [
+        Index("feedId"),
+        Index(value = ["feedId", "isRead"]),
+        Index("publishedMs"),
+        Index("isStarred")
+    ]
+)
 data class ArticleEntity(
     @PrimaryKey val id: String,
     val title: String,
@@ -19,7 +28,8 @@ data class ArticleEntity(
     val isStarred: Boolean = false,
     val fetchedContent: String?,
     val fetchedAt: Long?,
-    val syncedAt: Long
+    val syncedAt: Long,
+    val sourceFaviconUrl: String? = null
 ) {
     fun toDomain(): Article = Article(
         id = id,
@@ -34,6 +44,7 @@ data class ArticleEntity(
         isRead = isRead,
         isStarred = isStarred,
         fetchedContent = fetchedContent,
-        fetchedAt = fetchedAt
+        fetchedAt = fetchedAt,
+        sourceFaviconUrl = sourceFaviconUrl
     )
 }

@@ -1,5 +1,6 @@
 package com.example.ketchup.data
 
+import android.util.Log
 import com.example.ketchup.data.db.AppDatabase
 import com.example.ketchup.data.db.ArticleEntity
 import com.example.ketchup.data.db.FeedEntity
@@ -7,23 +8,41 @@ import com.example.ketchup.data.model.Article
 import com.example.ketchup.data.model.FeedInfo
 import com.example.ketchup.data.model.NavFilter
 import com.example.ketchup.network.ArticleFetcher
-import com.example.ketchup.network.FreshRssApi
+import com.example.ketchup.network.AtomFeedParser
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.util.Calendar
+import java.util.concurrent.TimeUnit
 
 class ArticleRepository(
     private val db: AppDatabase,
-    private val api: FreshRssApi,
     private val fetcher: ArticleFetcher,
-    private val secureStorage: SecureStorage,
-    private val prefs: PreferencesManager
+    private val prefs: PreferencesManager,
+    httpClient: OkHttpClient? = null
 ) {
+    companion object {
+        private const val MAX_FEED_BYTES = 10 * 1024 * 1024L  // 10 MB cap for feed XML
+        private const val MAX_IMPORT_FEEDS = 500
+    }
+
     private val dao = db.articleDao()
     private val feedDao = db.feedDao()
+    private val parser = AtomFeedParser()
+
+    private val httpClient = httpClient ?: OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .build()
 
     fun observeFeeds(): Flow<List<FeedInfo>> {
         return feedDao.observeAll().map { entities -> entities.map { it.toDomain() } }
@@ -42,6 +61,7 @@ class ArticleRepository(
     ): Flow<List<Article>> {
         val startOfDay = getStartOfDayMs()
         val entityFlow: Flow<List<ArticleEntity>> = when {
+            navFilter is NavFilter.Starred -> dao.observeStarred()
             navFilter is NavFilter.Today && showRead -> dao.observeToday(startOfDay)
             navFilter is NavFilter.Today && !showRead -> dao.observeTodayUnread(startOfDay)
             navFilter is NavFilter.ByFeed && showRead -> dao.observeByFeed(navFilter.feedId)
@@ -57,80 +77,94 @@ class ArticleRepository(
         return entityFlow.map { entities -> entities.map { it.toDomain() } }
     }
 
-    suspend fun syncArticles() = withContext(Dispatchers.IO) {
-        val baseUrl = secureStorage.serverUrl
-        val token = try {
-            api.login(baseUrl, secureStorage.username, secureStorage.apiPassword)
-                .also { secureStorage.authToken = it }
-        } catch (e: Exception) {
-            val cached = secureStorage.authToken
-            if (cached.isBlank()) throw e
-            cached
+    private val syncSemaphore = Semaphore(5)
+
+    suspend fun syncArticles(): Int = withContext(Dispatchers.IO) {
+        val feeds = feedDao.getAllOnce()
+        coroutineScope {
+            val results = feeds.map { feed ->
+                async {
+                    syncSemaphore.withPermit {
+                        try {
+                            syncFeed(feed)
+                            false // no failure
+                        } catch (e: Exception) {
+                            Log.w("ArticleRepository", "syncFeed failed for ${feed.feedUrl}", e)
+                            true // failure
+                        }
+                    }
+                }
+            }.awaitAll()
+            results.count { it }
         }
+    }
 
-        // Sync subscriptions first
-        try {
-            syncSubscriptions(baseUrl, token)
-        } catch (e: Exception) {
-            android.util.Log.w("ArticleRepository", "syncSubscriptions failed (non-fatal)", e)
+    private suspend fun syncFeed(feed: FeedEntity) {
+        val body = fetchFeedBody(feed.feedUrl) ?: return
+        val parsed = parser.parse(body, feed.feedUrl)
+
+        if (parsed.title != feed.title && parsed.title.isNotBlank()) {
+            feedDao.upsertAll(listOf(feed.copy(title = parsed.title)))
         }
-
-        // Always fetch all articles (including read) so the server is the source of truth
-        // for read state. The UI show/hide preference is applied at the DB query layer.
-        var continuation: String? = null
-        val allArticles = mutableListOf<Article>()
-
-        do {
-            val (articles, nextCont) = api.getReadingList(
-                baseUrl, token, includeRead = true, continuation = continuation
-            )
-            allArticles.addAll(articles)
-            continuation = nextCont
-        } while (continuation != null && allArticles.size < 200)
 
         val now = System.currentTimeMillis()
-        val entities = allArticles.map { article ->
-            val existing = dao.getById(article.id)
+        val existing = dao.getByFeedId(feed.id).associateBy { it.id }
+        val entities = parsed.articles.map { article ->
+            val prev = existing[article.id]
             ArticleEntity(
                 id = article.id,
                 title = article.title,
                 url = article.url,
                 author = article.author,
                 publishedMs = article.publishedMs,
-                feedTitle = article.feedTitle,
-                feedId = article.feedId,
+                feedTitle = article.sourceTitle ?: parsed.title,
+                feedId = feed.id,
                 summary = article.summary,
                 thumbnailUrl = article.thumbnailUrl,
-                isRead = article.isRead,
-                isStarred = article.isStarred,
-                fetchedContent = existing?.fetchedContent,
-                fetchedAt = existing?.fetchedAt,
-                syncedAt = now
+                isRead = prev?.isRead ?: false,
+                isStarred = prev?.isStarred ?: false,
+                fetchedContent = article.content ?: prev?.fetchedContent,
+                fetchedAt = if (article.content != null) now else prev?.fetchedAt,
+                syncedAt = now,
+                sourceFaviconUrl = article.sourceFaviconUrl
             )
         }
         dao.upsertAll(entities)
     }
 
-    suspend fun syncSubscriptions() = withContext(Dispatchers.IO) {
-        val baseUrl = secureStorage.serverUrl
-        val token = freshToken()
-        syncSubscriptions(baseUrl, token)
+    suspend fun addFeed(feedUrl: String): FeedInfo = withContext(Dispatchers.IO) {
+        val body = fetchFeedBody(feedUrl) ?: throw Exception("Could not fetch feed — check the URL and your connection")
+        val parsed = parser.parse(body, feedUrl)
+        val entity = FeedEntity(
+            id = feedUrl,
+            title = parsed.title,
+            feedUrl = feedUrl,
+            siteUrl = "",
+            faviconUrl = null,
+            categoryLabel = ""
+        )
+        feedDao.upsertAll(listOf(entity))
+        syncFeed(entity)
+        entity.toDomain()
     }
 
-    private suspend fun syncSubscriptions(baseUrl: String, token: String) {
-        val feeds = api.getSubscriptions(baseUrl, token)
-        val entities = feeds.map { feed ->
-            FeedEntity(
-                id = feed.id,
-                title = feed.title,
-                feedUrl = feed.feedUrl,
-                siteUrl = feed.siteUrl,
-                faviconUrl = feed.faviconUrl,
-                categoryLabel = feed.categoryLabel
-            )
+    private fun fetchFeedBody(url: String): String? {
+        return try {
+            val request = Request.Builder().url(url).build()
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@use null
+                val body = response.body ?: return@use null
+                val contentLength = body.contentLength()
+                if (contentLength > MAX_FEED_BYTES) return@use null
+                val source = body.source()
+                source.request(MAX_FEED_BYTES)
+                val size = minOf(source.buffer.size, MAX_FEED_BYTES)
+                source.readUtf8(size)
+            }
+        } catch (e: Exception) {
+            Log.w("ArticleRepository", "fetchFeedBody failed for $url", e)
+            null
         }
-        feedDao.deleteAll()
-        feedDao.upsertAll(entities)
     }
 
     private fun getStartOfDayMs(): Long {
@@ -159,46 +193,14 @@ class ArticleRepository(
 
     suspend fun markRead(articleId: String) = withContext(Dispatchers.IO) {
         dao.updateReadState(articleId, true)
-        try {
-            val token = freshToken()
-            val actionToken = api.getActionToken(secureStorage.serverUrl, token)
-            api.markRead(secureStorage.serverUrl, token, actionToken, articleId)
-        } catch (e: Exception) {
-            android.util.Log.e("ArticleRepository", "markRead failed, reverting local state", e)
-            dao.updateReadState(articleId, false)
-        }
-    }
-
-    suspend fun toggleStar(articleId: String, starred: Boolean) = withContext(Dispatchers.IO) {
-        dao.updateStarred(articleId, starred)
-        try {
-            val token = freshToken()
-            val actionToken = api.getActionToken(secureStorage.serverUrl, token)
-            if (starred) api.markStarred(secureStorage.serverUrl, token, actionToken, articleId)
-            else api.markUnstarred(secureStorage.serverUrl, token, actionToken, articleId)
-        } catch (e: Exception) {
-            android.util.Log.e("ArticleRepository", "toggleStar failed, reverting", e)
-            dao.updateStarred(articleId, !starred)
-        }
     }
 
     suspend fun markUnread(articleId: String) = withContext(Dispatchers.IO) {
         dao.updateReadState(articleId, false)
-        try {
-            val token = freshToken()
-            val actionToken = api.getActionToken(secureStorage.serverUrl, token)
-            api.markUnread(secureStorage.serverUrl, token, actionToken, articleId)
-        } catch (e: Exception) {
-            android.util.Log.e("ArticleRepository", "markUnread failed, reverting local state", e)
-            dao.updateReadState(articleId, true)
-        }
     }
 
-    private suspend fun freshToken(): String {
-        return secureStorage.authToken.ifBlank {
-            api.login(secureStorage.serverUrl, secureStorage.username, secureStorage.apiPassword)
-                .also { secureStorage.authToken = it }
-        }
+    suspend fun toggleStar(articleId: String, starred: Boolean) = withContext(Dispatchers.IO) {
+        dao.updateStarred(articleId, starred)
     }
 
     suspend fun clearFetchedContent() = withContext(Dispatchers.IO) {
@@ -209,8 +211,61 @@ class ArticleRepository(
         dao.getById(id)?.toDomain()
     }
 
-    fun isFetchCacheValid(fetchedAt: Long?, ttlMs: Long): Boolean {
+    fun isFetchCacheValid(fetchedAt: Long?): Boolean {
         if (fetchedAt == null) return false
+        val ttlMs = prefs.cacheTtlHours * 3600_000L
         return System.currentTimeMillis() - fetchedAt < ttlMs
+    }
+
+    suspend fun deleteFeed(feedId: String) = withContext(Dispatchers.IO) {
+        dao.deleteByFeedId(feedId)
+        feedDao.deleteById(feedId)
+    }
+
+    suspend fun updateFeed(feedId: String, title: String, categoryLabel: String) = withContext(Dispatchers.IO) {
+        feedDao.updateTitleAndCategory(feedId, title, categoryLabel)
+    }
+
+    suspend fun exportFeedsJson(): String = withContext(Dispatchers.IO) {
+        val feeds = feedDao.getAllOnce()
+        val arr = org.json.JSONArray()
+        for (f in feeds) {
+            arr.put(org.json.JSONObject().apply {
+                put("title", f.title)
+                put("feed_url", f.feedUrl)
+                put("site_url", f.siteUrl)
+                put("favicon_url", f.faviconUrl ?: org.json.JSONObject.NULL)
+                put("category_label", f.categoryLabel)
+            })
+        }
+        org.json.JSONObject().apply {
+            put("version", 1)
+            put("feeds", arr)
+        }.toString(2)
+    }
+
+    suspend fun importFeedsJson(json: String): Int = withContext(Dispatchers.IO) {
+        val root = org.json.JSONObject(json)
+        val arr = root.getJSONArray("feeds")
+        if (arr.length() > MAX_IMPORT_FEEDS) {
+            throw Exception("Too many feeds (max $MAX_IMPORT_FEEDS)")
+        }
+        val entities = mutableListOf<FeedEntity>()
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            val feedUrl = obj.getString("feed_url")
+            if (feedUrl.isBlank()) continue
+            if (!feedUrl.startsWith("http://") && !feedUrl.startsWith("https://")) continue
+            entities += FeedEntity(
+                id = feedUrl,
+                title = obj.optString("title", feedUrl),
+                feedUrl = feedUrl,
+                siteUrl = obj.optString("site_url", ""),
+                faviconUrl = obj.optString("favicon_url").takeIf { it.isNotEmpty() },
+                categoryLabel = obj.optString("category_label", "")
+            )
+        }
+        feedDao.upsertAll(entities)
+        entities.size
     }
 }

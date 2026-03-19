@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Cleartext (HTTP) traffic is permitted because user-configured RSS feeds
+    may be served over HTTP. HTTPS is always preferred when available.
+    To restrict a future version to HTTPS-only feeds, set cleartextTrafficPermitted="false"
+    here without touching the manifest.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

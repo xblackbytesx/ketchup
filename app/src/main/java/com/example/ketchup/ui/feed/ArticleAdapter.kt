@@ -9,7 +9,9 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import coil.load
+import androidx.core.content.ContextCompat
+import coil3.asImage
+import coil3.load
 import com.example.ketchup.R
 import com.example.ketchup.data.model.Article
 import java.text.SimpleDateFormat
@@ -24,10 +26,10 @@ class ArticleAdapter(
     var useFeaturedLayout: Boolean = useFeaturedLayout
         set(value) {
             field = value
-            notifyDataSetChanged()
+            notifyItemRangeChanged(0, itemCount)
         }
 
-    var feedFaviconMap: Map<String, String?> = emptyMap()
+
 
     companion object {
         const val VIEW_TYPE_HERO = 0
@@ -47,12 +49,13 @@ class ArticleAdapter(
             override fun areContentsTheSame(oldItem: Article, newItem: Article) = oldItem == newItem
         }
 
-        @Suppress("DEPRECATION")
         fun htmlToSnippet(html: String?): String {
             if (html.isNullOrBlank()) return ""
-            val plain = Html.fromHtml(html).toString()
+            val plain = Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT).toString()
             return plain.replace(Regex("\\s+"), " ").trim()
         }
+
+        private val dateFormat = SimpleDateFormat("MMM d", Locale.getDefault())
 
         fun formatTimeAgo(publishedMs: Long): String {
             val diff = System.currentTimeMillis() - publishedMs
@@ -60,7 +63,7 @@ class ArticleAdapter(
                 diff < 60 * 60 * 1000L -> "${diff / 60_000}m"
                 diff < 24 * 60 * 60 * 1000L -> "${diff / 3_600_000}h"
                 diff < 7 * 24 * 60 * 60 * 1000L -> "${diff / 86_400_000}d"
-                else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(publishedMs))
+                else -> dateFormat.format(Date(publishedMs))
             }
         }
     }
@@ -87,12 +90,11 @@ class ArticleAdapter(
         val article = getItem(position)
         val timeStr = formatTimeAgo(article.publishedMs)
         val alpha = if (article.isRead) 0.6f else 1.0f
-        val faviconUrl = feedFaviconMap[article.feedId]
 
         when (holder) {
-            is HeroViewHolder -> holder.bind(article, timeStr, alpha, faviconUrl)
-            is SecondaryViewHolder -> holder.bind(article, timeStr, alpha, faviconUrl)
-            is StandardViewHolder -> holder.bind(article, timeStr, alpha, faviconUrl)
+            is HeroViewHolder -> holder.bind(article, timeStr, alpha, article.sourceFaviconUrl)
+            is SecondaryViewHolder -> holder.bind(article, timeStr, alpha, article.sourceFaviconUrl)
+            is StandardViewHolder -> holder.bind(article, timeStr, alpha, article.sourceFaviconUrl)
         }
 
         holder.itemView.setOnClickListener { onArticleClick(article) }
@@ -123,7 +125,7 @@ class ArticleAdapter(
 
             if (article.thumbnailUrl != null) {
                 ivFallback.visibility = View.GONE
-                ivThumbnail.load(article.thumbnailUrl) { crossfade(true) }
+                ivThumbnail.load(article.thumbnailUrl)
             } else {
                 ivFallback.visibility = View.VISIBLE
                 ivThumbnail.load(null as String?)  // cancels any pending request and clears the view
@@ -155,7 +157,7 @@ class ArticleAdapter(
 
             if (article.thumbnailUrl != null) {
                 ivFallback.visibility = View.GONE
-                ivThumbnail.load(article.thumbnailUrl) { crossfade(true) }
+                ivThumbnail.load(article.thumbnailUrl)
             } else {
                 ivFallback.visibility = View.VISIBLE
                 ivThumbnail.load(null as String?)  // cancels any pending request and clears the view
@@ -187,7 +189,7 @@ class ArticleAdapter(
 
             if (article.thumbnailUrl != null) {
                 ivThumbnail.visibility = View.VISIBLE
-                ivThumbnail.load(article.thumbnailUrl) { crossfade(true) }
+                ivThumbnail.load(article.thumbnailUrl)
             } else {
                 ivThumbnail.visibility = View.GONE
             }
@@ -198,9 +200,9 @@ class ArticleAdapter(
 
     private fun loadFavicon(iv: ImageView, url: String?) {
         if (url != null) {
+            val fallback = ContextCompat.getDrawable(iv.context, R.drawable.ic_rss)?.asImage()
             iv.load(url) {
-                crossfade(true)
-                error(R.drawable.ic_rss)
+                error(fallback)
             }
         } else {
             iv.setImageResource(R.drawable.ic_rss)
