@@ -4,9 +4,12 @@ import android.app.Application
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
-import coil.Coil
-import coil.ImageLoader
-import coil.decode.SvgDecoder
+import coil3.ComponentRegistry
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.svg.SvgDecoder
 import com.example.ketchup.data.ArticleRepository
 import com.example.ketchup.data.PreferencesManager
 import com.example.ketchup.data.db.AppDatabase
@@ -14,7 +17,7 @@ import com.example.ketchup.network.ArticleFetcher
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
-class KetchupApplication : Application() {
+class KetchupApplication : Application(), SingletonImageLoader.Factory {
     @Volatile
     var isAuthenticated: Boolean = false
 
@@ -40,13 +43,18 @@ class KetchupApplication : Application() {
         )
     }
 
+    override fun newImageLoader(context: PlatformContext): ImageLoader {
+        val components = ComponentRegistry.Builder()
+            .add(SvgDecoder.Factory())
+            .add(OkHttpNetworkFetcherFactory(callFactory = { httpClient }))
+            .build()
+        return ImageLoader.Builder(context)
+            .components(components)
+            .build()
+    }
+
     override fun onCreate() {
         super.onCreate()
-        Coil.setImageLoader(
-            ImageLoader.Builder(this)
-                .components { add(SvgDecoder.Factory()) }
-                .build()
-        )
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStop(owner: LifecycleOwner) {

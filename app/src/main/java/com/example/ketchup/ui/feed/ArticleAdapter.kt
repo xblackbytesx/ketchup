@@ -9,7 +9,9 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import coil.load
+import androidx.core.content.ContextCompat
+import coil3.asImage
+import coil3.load
 import com.example.ketchup.R
 import com.example.ketchup.data.model.Article
 import java.text.SimpleDateFormat
@@ -123,7 +125,7 @@ class ArticleAdapter(
 
             if (article.thumbnailUrl != null) {
                 ivFallback.visibility = View.GONE
-                ivThumbnail.load(article.thumbnailUrl) { crossfade(true) }
+                ivThumbnail.load(article.thumbnailUrl)
             } else {
                 ivFallback.visibility = View.VISIBLE
                 ivThumbnail.load(null as String?)  // cancels any pending request and clears the view
@@ -155,7 +157,7 @@ class ArticleAdapter(
 
             if (article.thumbnailUrl != null) {
                 ivFallback.visibility = View.GONE
-                ivThumbnail.load(article.thumbnailUrl) { crossfade(true) }
+                ivThumbnail.load(article.thumbnailUrl)
             } else {
                 ivFallback.visibility = View.VISIBLE
                 ivThumbnail.load(null as String?)  // cancels any pending request and clears the view
@@ -187,7 +189,7 @@ class ArticleAdapter(
 
             if (article.thumbnailUrl != null) {
                 ivThumbnail.visibility = View.VISIBLE
-                ivThumbnail.load(article.thumbnailUrl) { crossfade(true) }
+                ivThumbnail.load(article.thumbnailUrl)
             } else {
                 ivThumbnail.visibility = View.GONE
             }
@@ -198,9 +200,9 @@ class ArticleAdapter(
 
     private fun loadFavicon(iv: ImageView, url: String?) {
         if (url != null) {
+            val fallback = ContextCompat.getDrawable(iv.context, R.drawable.ic_rss)?.asImage()
             iv.load(url) {
-                crossfade(true)
-                error(R.drawable.ic_rss)
+                error(fallback)
             }
         } else {
             iv.setImageResource(R.drawable.ic_rss)

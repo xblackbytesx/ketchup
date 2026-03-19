@@ -57,8 +57,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("io.coil-kt:coil:2.7.0")
-    implementation("io.coil-kt:coil-svg:2.7.0")
+    implementation("io.coil-kt.coil3:coil:3.1.0")
+    implementation("io.coil-kt.coil3:coil-svg:3.1.0")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.1.0")
 
     implementation("androidx.room:room-runtime:2.7.0")
     implementation("androidx.room:room-ktx:2.7.0")

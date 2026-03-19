@@ -8,7 +8,9 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import coil.load
+import androidx.core.content.ContextCompat
+import coil3.asImage
+import coil3.load
 import com.example.ketchup.R
 import com.example.ketchup.data.model.FeedInfo
 import com.example.ketchup.data.model.NavFilter
@@ -137,9 +139,9 @@ class NavDrawerAdapter(
                 tvCount.visibility = View.GONE
             }
             if (item.feed.faviconUrl != null) {
+                val fallback = ContextCompat.getDrawable(itemView.context, R.drawable.ic_rss)?.asImage()
                 ivFavicon.load(item.feed.faviconUrl) {
-                    crossfade(true)
-                    error(R.drawable.ic_rss)
+                    error(fallback)
                 }
             } else {
                 ivFavicon.setImageResource(R.drawable.ic_rss)
