@@ -16,29 +16,29 @@ import androidx.lifecycle.lifecycleScope
 import androidx.webkit.WebViewAssetLoader
 import com.example.ketchup.KetchupApplication
 import com.example.ketchup.R
-import com.example.ketchup.data.ArticleRepository
 import com.example.ketchup.data.PreferencesManager
-import com.example.ketchup.data.db.AppDatabase
 import com.example.ketchup.data.model.Article
 import com.example.ketchup.databinding.ActivityArticleReaderBinding
 import com.example.ketchup.ui.BaseActivity
 import com.example.ketchup.ui.ThemeHelper
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
 class ArticleReaderActivity : BaseActivity() {
     companion object {
-        const val EXTRA_ARTICLE     = "extra_article"
+        const val EXTRA_ARTICLE_ID  = "extra_article_id"
         const val EXTRA_ARTICLE_IDS = "extra_article_ids"
         const val EXTRA_POSITION    = "extra_position"
     }
 
     private lateinit var binding: ActivityArticleReaderBinding
     private lateinit var article: Article
-    private lateinit var repository: ArticleRepository
     private lateinit var prefs: PreferencesManager
     private lateinit var renderer: ArticleRenderer
     private lateinit var assetLoader: WebViewAssetLoader
+    private val repository by lazy { (application as KetchupApplication).repository }
 
     private var articleIds: List<String> = emptyList()
     private var position: Int = 0
@@ -53,8 +53,7 @@ class ArticleReaderActivity : BaseActivity() {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        @Suppress("DEPRECATION")
-        article = intent.getParcelableExtra(EXTRA_ARTICLE)
+        val articleId = intent.getStringExtra(EXTRA_ARTICLE_ID)
             ?: run { finish(); return }
 
         articleIds = intent.getStringArrayListExtra(EXTRA_ARTICLE_IDS) ?: emptyList()
@@ -62,17 +61,16 @@ class ArticleReaderActivity : BaseActivity() {
 
         prefs = PreferencesManager(this)
         renderer = ArticleRenderer(this)
-        val app = application as KetchupApplication
-        repository = ArticleRepository(
-            db = AppDatabase.getInstance(this),
-            fetcher = app.fetcher,
-            prefs = prefs
-        )
 
         setupWebView()
         setupScrollBehavior()
         setupBottomBar()
-        loadArticle(article)
+
+        lifecycleScope.launch {
+            val loaded = repository.getArticleById(articleId)
+                ?: run { finish(); return@launch }
+            loadArticle(loaded)
+        }
     }
 
     private fun loadArticle(a: Article) {
@@ -89,9 +87,9 @@ class ArticleReaderActivity : BaseActivity() {
 
     override fun onStop() {
         super.onStop()
-        if (!::article.isInitialized || !::repository.isInitialized) return
+        if (!::article.isInitialized) return
         if (prefs.autoMarkRead) {
-            lifecycleScope.launch { repository.markRead(article.id) }
+            lifecycleScope.launch { withContext(NonCancellable) { repository.markRead(article.id) } }
         }
     }
 
@@ -113,16 +111,20 @@ class ArticleReaderActivity : BaseActivity() {
             }
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                try {
-                    startActivity(Intent(Intent.ACTION_VIEW, request.url))
-                } catch (_: Exception) {}
+                val scheme = request.url.scheme
+                if (scheme == "http" || scheme == "https") {
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, request.url))
+                    } catch (_: Exception) {
+                        Toast.makeText(this@ArticleReaderActivity, "No browser found", Toast.LENGTH_SHORT).show()
+                    }
+                }
                 return true
             }
         }
 
         binding.webView.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
+            javaScriptEnabled = false
             allowFileAccess = false
             allowContentAccess = false
             setSupportZoom(true)
@@ -243,9 +245,8 @@ class ArticleReaderActivity : BaseActivity() {
     }
 
     private fun renderContent() {
-        val ttlMs = prefs.cacheTtlHours * 3600_000L
         val useFetched = article.fetchedContent != null &&
-                repository.isFetchCacheValid(article.fetchedAt, ttlMs)
+                repository.isFetchCacheValid(article.fetchedAt)
 
         val colors = resolveColors()
         val html = if (useFetched) {
@@ -273,9 +274,8 @@ class ArticleReaderActivity : BaseActivity() {
             binding.btnFetch.isEnabled = true
 
             if (success) {
-                val entity = AppDatabase.getInstance(this@ArticleReaderActivity)
-                    .articleDao().getById(article.id)
-                val rawHtml = entity?.fetchedContent
+                val updated = repository.getArticleById(article.id)
+                val rawHtml = updated?.fetchedContent
                 if (rawHtml != null) {
                     showingFetchedContent = true
                     val html = renderer.renderWithFullContent(article, rawHtml, resolveColors())

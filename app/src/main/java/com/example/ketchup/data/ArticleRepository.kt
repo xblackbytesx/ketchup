@@ -10,9 +10,14 @@ import com.example.ketchup.data.model.NavFilter
 import com.example.ketchup.network.ArticleFetcher
 import com.example.ketchup.network.AtomFeedParser
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -22,12 +27,19 @@ import java.util.concurrent.TimeUnit
 class ArticleRepository(
     private val db: AppDatabase,
     private val fetcher: ArticleFetcher,
-    private val prefs: PreferencesManager
+    private val prefs: PreferencesManager,
+    httpClient: OkHttpClient? = null
 ) {
+    companion object {
+        private const val MAX_FEED_BYTES = 10 * 1024 * 1024L  // 10 MB cap for feed XML
+        private const val MAX_IMPORT_FEEDS = 500
+    }
+
     private val dao = db.articleDao()
     private val feedDao = db.feedDao()
+    private val parser = AtomFeedParser()
 
-    private val httpClient = OkHttpClient.Builder()
+    private val httpClient = httpClient ?: OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .build()
@@ -65,23 +77,31 @@ class ArticleRepository(
         return entityFlow.map { entities -> entities.map { it.toDomain() } }
     }
 
+    private val syncSemaphore = Semaphore(5)
+
     suspend fun syncArticles(): Int = withContext(Dispatchers.IO) {
         val feeds = feedDao.getAllOnce()
-        var failures = 0
-        feeds.forEach { feed ->
-            try {
-                syncFeed(feed)
-            } catch (e: Exception) {
-                Log.w("ArticleRepository", "syncFeed failed for ${feed.feedUrl}", e)
-                failures++
-            }
+        coroutineScope {
+            val results = feeds.map { feed ->
+                async {
+                    syncSemaphore.withPermit {
+                        try {
+                            syncFeed(feed)
+                            false // no failure
+                        } catch (e: Exception) {
+                            Log.w("ArticleRepository", "syncFeed failed for ${feed.feedUrl}", e)
+                            true // failure
+                        }
+                    }
+                }
+            }.awaitAll()
+            results.count { it }
         }
-        failures
     }
 
     private suspend fun syncFeed(feed: FeedEntity) {
         val body = fetchFeedBody(feed.feedUrl) ?: return
-        val parsed = AtomFeedParser().parse(body, feed.feedUrl)
+        val parsed = parser.parse(body, feed.feedUrl)
 
         if (parsed.title != feed.title && parsed.title.isNotBlank()) {
             feedDao.upsertAll(listOf(feed.copy(title = parsed.title)))
@@ -114,7 +134,7 @@ class ArticleRepository(
 
     suspend fun addFeed(feedUrl: String): FeedInfo = withContext(Dispatchers.IO) {
         val body = fetchFeedBody(feedUrl) ?: throw Exception("Could not fetch feed — check the URL and your connection")
-        val parsed = AtomFeedParser().parse(body, feedUrl)
+        val parsed = parser.parse(body, feedUrl)
         val entity = FeedEntity(
             id = feedUrl,
             title = parsed.title,
@@ -132,7 +152,14 @@ class ArticleRepository(
         return try {
             val request = Request.Builder().url(url).build()
             httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) null else response.body?.string()
+                if (!response.isSuccessful) return@use null
+                val body = response.body ?: return@use null
+                val contentLength = body.contentLength()
+                if (contentLength > MAX_FEED_BYTES) return@use null
+                val source = body.source()
+                source.request(MAX_FEED_BYTES)
+                val size = minOf(source.buffer.size, MAX_FEED_BYTES)
+                source.readUtf8(size)
             }
         } catch (e: Exception) {
             Log.w("ArticleRepository", "fetchFeedBody failed for $url", e)
@@ -184,8 +211,9 @@ class ArticleRepository(
         dao.getById(id)?.toDomain()
     }
 
-    fun isFetchCacheValid(fetchedAt: Long?, ttlMs: Long): Boolean {
+    fun isFetchCacheValid(fetchedAt: Long?): Boolean {
         if (fetchedAt == null) return false
+        val ttlMs = prefs.cacheTtlHours * 3600_000L
         return System.currentTimeMillis() - fetchedAt < ttlMs
     }
 
@@ -219,11 +247,15 @@ class ArticleRepository(
     suspend fun importFeedsJson(json: String): Int = withContext(Dispatchers.IO) {
         val root = org.json.JSONObject(json)
         val arr = root.getJSONArray("feeds")
+        if (arr.length() > MAX_IMPORT_FEEDS) {
+            throw Exception("Too many feeds (max $MAX_IMPORT_FEEDS)")
+        }
         val entities = mutableListOf<FeedEntity>()
         for (i in 0 until arr.length()) {
             val obj = arr.getJSONObject(i)
             val feedUrl = obj.getString("feed_url")
             if (feedUrl.isBlank()) continue
+            if (!feedUrl.startsWith("http://") && !feedUrl.startsWith("https://")) continue
             entities += FeedEntity(
                 id = feedUrl,
                 title = obj.optString("title", feedUrl),

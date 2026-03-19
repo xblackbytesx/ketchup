@@ -1,9 +1,5 @@
 package com.example.ketchup.data.model
 
-import android.os.Parcelable
-import kotlinx.parcelize.Parcelize
-
-@Parcelize
 data class Article(
     val id: String,
     val title: String,
@@ -19,4 +15,4 @@ data class Article(
     val fetchedContent: String?,
     val fetchedAt: Long?,
     val sourceFaviconUrl: String? = null
-) : Parcelable
+)

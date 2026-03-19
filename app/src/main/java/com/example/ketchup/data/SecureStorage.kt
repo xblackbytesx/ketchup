@@ -49,8 +49,29 @@ class SecureStorage(context: Context) {
 
     fun isPinConfigured(): Boolean = isPinEnabled && pinHash.isNotBlank()
 
+    fun setPinAtomic(salt: String, hash: String) {
+        prefs.edit()
+            .putString(KEY_PIN_SALT, salt)
+            .putString(KEY_PIN_HASH, hash)
+            .putBoolean(KEY_PIN_ENABLED, true)
+            .putInt(KEY_PIN_FAIL_COUNT, 0)
+            .putLong(KEY_PIN_LOCKOUT_END, 0L)
+            .commit()
+    }
+
+    fun clearPinAtomic() {
+        prefs.edit()
+            .putString(KEY_PIN_HASH, "")
+            .putString(KEY_PIN_SALT, "")
+            .putBoolean(KEY_PIN_ENABLED, false)
+            .putBoolean(KEY_BIOMETRIC_ENABLED, false)
+            .putInt(KEY_PIN_FAIL_COUNT, 0)
+            .putLong(KEY_PIN_LOCKOUT_END, 0L)
+            .commit()
+    }
+
     fun clearAll() {
-        prefs.edit().clear().apply()
+        prefs.edit().clear().commit()
     }
 
     companion object {

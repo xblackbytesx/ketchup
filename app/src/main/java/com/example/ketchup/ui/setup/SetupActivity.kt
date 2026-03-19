@@ -2,13 +2,9 @@ package com.example.ketchup.ui.setup
 
 import android.content.Intent
 import android.os.Bundle
-import android.view.WindowManager
 import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import com.example.ketchup.KetchupApplication
-import com.example.ketchup.data.ArticleRepository
-import com.example.ketchup.data.PreferencesManager
-import com.example.ketchup.data.db.AppDatabase
 import com.example.ketchup.databinding.ActivitySetupBinding
 import com.example.ketchup.ui.BaseActivity
 import com.example.ketchup.ui.feed.FeedActivity
@@ -16,20 +12,12 @@ import kotlinx.coroutines.launch
 
 class SetupActivity : BaseActivity() {
     private lateinit var binding: ActivitySetupBinding
-    private lateinit var repository: ArticleRepository
+    private val repository by lazy { (application as KetchupApplication).repository }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         binding = ActivitySetupBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        val app = application as KetchupApplication
-        repository = ArticleRepository(
-            db = AppDatabase.getInstance(this),
-            fetcher = app.fetcher,
-            prefs = PreferencesManager(this)
-        )
 
         binding.btnSave.setOnClickListener { attemptAddFeed() }
     }

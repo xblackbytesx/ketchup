@@ -16,6 +16,8 @@
         <item name="colorOnPrimary">@color/ketchup_on_primary</item>
         <item name="colorPrimaryContainer">@color/ketchup_primary_container</item>
         <item name="colorOnPrimaryContainer">@color/ketchup_on_primary_container</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
     <!--

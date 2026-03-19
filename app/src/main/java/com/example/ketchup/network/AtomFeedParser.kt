@@ -22,10 +22,14 @@ data class ParsedArticle(
 data class ParsedFeed(val title: String, val articles: List<ParsedArticle>)
 
 class AtomFeedParser {
+    private val rssDateFormat = SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", Locale.ENGLISH)
 
     fun parse(responseBody: String, feedUrl: String): ParsedFeed {
         val parser = Xml.newPullParser()
         parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)
+        try {
+            parser.setFeature("http://xmlpull.org/v1/doc/features.html#process-docdecl", false)
+        } catch (_: Exception) { /* feature not supported by this parser impl */ }
         parser.setInput(responseBody.reader())
 
         var feedTitle = ""
@@ -136,8 +140,7 @@ class AtomFeedParser {
             java.time.Instant.parse(dateStr).toEpochMilli()
         } catch (_: Exception) {
             try {
-                SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", Locale.ENGLISH)
-                    .parse(dateStr)?.time ?: 0L
+                rssDateFormat.parse(dateStr)?.time ?: 0L
             } catch (_: Exception) {
                 0L
             }

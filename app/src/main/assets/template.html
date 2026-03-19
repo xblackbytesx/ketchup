@@ -2,11 +2,9 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://appassets.androidplatform.net 'unsafe-inline'; style-src https://appassets.androidplatform.net 'unsafe-inline'; img-src https: data: blob:; media-src https: data: blob:;" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src https://appassets.androidplatform.net 'unsafe-inline'; img-src https: data:; media-src https: data:;" />
   <style>:root{--bg:{{color_bg}};--fg:{{color_fg}};--accent:{{color_accent}};}</style>
   <link rel="stylesheet" href="https://appassets.androidplatform.net/assets/stylesheet.css">
-  <script src="https://appassets.androidplatform.net/assets/mercury-parser.js"></script>
-  <script src="https://appassets.androidplatform.net/assets/full-content.js"></script>
 </head>
 <body>
   <article>
@@ -16,6 +14,5 @@
     </header>
     <div id="article-body">{{body}}</div>
   </article>
-  {{full_content_script}}
 </body>
 </html>

@@ -3,7 +3,6 @@ package com.example.ketchup.ui.settings
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
-import android.view.WindowManager
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -11,10 +10,8 @@ import androidx.lifecycle.lifecycleScope
 import com.example.ketchup.KetchupApplication
 import com.example.ketchup.auth.AuthManager
 import com.example.ketchup.auth.BiometricHelper
-import com.example.ketchup.data.ArticleRepository
 import com.example.ketchup.data.PreferencesManager
 import com.example.ketchup.data.SecureStorage
-import com.example.ketchup.data.db.AppDatabase
 import com.example.ketchup.databinding.ActivitySettingsBinding
 import com.example.ketchup.ui.BaseActivity
 import com.example.ketchup.ui.ThemeHelper
@@ -28,7 +25,7 @@ class SettingsActivity : BaseActivity() {
     private lateinit var prefs: PreferencesManager
     private lateinit var storage: SecureStorage
     private lateinit var authManager: AuthManager
-    private lateinit var repository: ArticleRepository
+    private val repository by lazy { (application as KetchupApplication).repository }
 
     private val exportLauncher = registerForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -40,7 +37,6 @@ class SettingsActivity : BaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
@@ -50,12 +46,6 @@ class SettingsActivity : BaseActivity() {
         prefs = PreferencesManager(this)
         storage = SecureStorage(this)
         authManager = AuthManager(storage)
-        val app = application as KetchupApplication
-        repository = ArticleRepository(
-            db = AppDatabase.getInstance(this),
-            fetcher = app.fetcher,
-            prefs = prefs
-        )
 
         setupAccountSection()
         setupDisplaySection()
@@ -160,7 +150,7 @@ class SettingsActivity : BaseActivity() {
             }
         }
 
-        binding.btnChangePin.setOnClickListener { showSetPinDialog() }
+        binding.btnChangePin.setOnClickListener { showVerifyThenChangePin() }
 
         val biometricHelper = BiometricHelper(this)
         if (!biometricHelper.isAvailable()) {
@@ -216,6 +206,32 @@ class SettingsActivity : BaseActivity() {
         } catch (e: Exception) {
             Toast.makeText(this, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun showVerifyThenChangePin() {
+        if (!storage.isPinConfigured()) {
+            showSetPinDialog()
+            return
+        }
+        val input = EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            hint = "Enter current PIN"
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Verify PIN")
+            .setView(input)
+            .setPositiveButton("Verify") { _, _ ->
+                val pin = input.text.toString()
+                input.text?.clear()
+                val result = authManager.verifyPin(pin)
+                if (result is com.example.ketchup.auth.PinVerifyResult.Success) {
+                    showSetPinDialog()
+                } else {
+                    Toast.makeText(this, "Incorrect PIN", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel") { _, _ -> input.text?.clear() }
+            .show()
     }
 
     private fun showSetPinDialog() {

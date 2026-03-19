@@ -47,12 +47,13 @@ class ArticleAdapter(
             override fun areContentsTheSame(oldItem: Article, newItem: Article) = oldItem == newItem
         }
 
-        @Suppress("DEPRECATION")
         fun htmlToSnippet(html: String?): String {
             if (html.isNullOrBlank()) return ""
-            val plain = Html.fromHtml(html).toString()
+            val plain = Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT).toString()
             return plain.replace(Regex("\\s+"), " ").trim()
         }
+
+        private val dateFormat = SimpleDateFormat("MMM d", Locale.getDefault())
 
         fun formatTimeAgo(publishedMs: Long): String {
             val diff = System.currentTimeMillis() - publishedMs
@@ -60,7 +61,7 @@ class ArticleAdapter(
                 diff < 60 * 60 * 1000L -> "${diff / 60_000}m"
                 diff < 24 * 60 * 60 * 1000L -> "${diff / 3_600_000}h"
                 diff < 7 * 24 * 60 * 60 * 1000L -> "${diff / 86_400_000}d"
-                else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(publishedMs))
+                else -> dateFormat.format(Date(publishedMs))
             }
         }
     }

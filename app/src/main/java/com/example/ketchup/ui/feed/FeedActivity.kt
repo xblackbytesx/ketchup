@@ -74,7 +74,7 @@ class FeedActivity : BaseActivity() {
                 val currentList = adapter.currentList
                 val position = currentList.indexOf(article).coerceAtLeast(0)
                 val intent = Intent(this, ArticleReaderActivity::class.java)
-                    .putExtra(ArticleReaderActivity.EXTRA_ARTICLE, article)
+                    .putExtra(ArticleReaderActivity.EXTRA_ARTICLE_ID, article.id)
                     .putStringArrayListExtra(ArticleReaderActivity.EXTRA_ARTICLE_IDS, ArrayList(currentList.map { it.id }))
                     .putExtra(ArticleReaderActivity.EXTRA_POSITION, position)
                 startActivity(intent)
@@ -110,7 +110,7 @@ class FeedActivity : BaseActivity() {
             }
         })
         binding.fabScrollTop.setOnClickListener {
-            binding.recyclerView.smoothScrollToPosition(0)
+            binding.recyclerView.scrollToPosition(0)
             hideFab()
         }
 

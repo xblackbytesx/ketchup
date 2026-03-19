@@ -8,7 +8,7 @@ import androidx.fragment.app.FragmentActivity
 class BiometricHelper(private val activity: FragmentActivity) {
     fun isAvailable(): Boolean {
         val manager = BiometricManager.from(activity)
-        return manager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) ==
+        return manager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
                 BiometricManager.BIOMETRIC_SUCCESS
     }
 
@@ -37,7 +37,7 @@ class BiometricHelper(private val activity: FragmentActivity) {
             .setTitle(title)
             .setSubtitle(subtitle)
             .setNegativeButtonText("Use PIN")
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
             .build()
         prompt.authenticate(promptInfo)
     }

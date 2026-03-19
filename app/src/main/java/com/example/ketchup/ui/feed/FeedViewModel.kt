@@ -5,9 +5,7 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.ketchup.KetchupApplication
-import com.example.ketchup.data.ArticleRepository
 import com.example.ketchup.data.PreferencesManager
-import com.example.ketchup.data.db.AppDatabase
 import com.example.ketchup.data.model.FeedInfo
 import com.example.ketchup.data.model.NavFilter
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,11 +16,7 @@ import kotlinx.coroutines.launch
 class FeedViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = PreferencesManager(application)
     private val app = application as KetchupApplication
-    private val repository = ArticleRepository(
-        db = AppDatabase.getInstance(application),
-        fetcher = app.fetcher,
-        prefs = prefs
-    )
+    private val repository = app.repository
 
     private val _showRead = MutableStateFlow(prefs.showReadArticles)
     val showRead: StateFlow<Boolean> = _showRead.asStateFlow()

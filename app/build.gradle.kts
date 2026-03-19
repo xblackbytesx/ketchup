@@ -2,7 +2,6 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp")
-    id("kotlin-parcelize")
 }
 
 android {
@@ -52,6 +51,7 @@ dependencies {
 
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.0")
+    implementation("androidx.lifecycle:lifecycle-process:2.9.0")
     implementation("androidx.activity:activity-ktx:1.10.1")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.1")
