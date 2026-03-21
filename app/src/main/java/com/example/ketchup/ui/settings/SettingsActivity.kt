@@ -47,29 +47,16 @@ class SettingsActivity : BaseActivity() {
         storage = SecureStorage(this)
         authManager = AuthManager(storage)
 
-        setupAccountSection()
-        setupDisplaySection()
+        setupAppearanceSection()
+        setupFeedListSection()
+        setupReaderSection()
         setupCacheSection()
         setupDataSection()
         setupSecuritySection()
+        setupDangerZone()
     }
 
-    private fun setupAccountSection() {
-        binding.tvServerUrl.text = "Standalone RSS reader"
-        binding.btnLogout.setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle("Reset App")
-                .setMessage("This will clear all PIN settings and remove all local data. Continue?")
-                .setPositiveButton("Reset") { _, _ ->
-                    storage.clearAll()
-                    finishAffinity()
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
-        }
-    }
-
-    private fun setupDisplaySection() {
+    private fun setupAppearanceSection() {
         val themes = arrayOf("System default", "Light", "Dark", "OLED")
         val themeValues = arrayOf(ThemeHelper.THEME_SYSTEM, ThemeHelper.THEME_LIGHT, ThemeHelper.THEME_DARK, ThemeHelper.THEME_OLED)
         val currentThemeIdx = themeValues.indexOf(prefs.theme).coerceAtLeast(0)
@@ -78,7 +65,7 @@ class SettingsActivity : BaseActivity() {
         binding.spinnerTheme.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 val selected = themeValues[position]
-                if (selected == prefs.theme) return  // initial setSelection or no real change
+                if (selected == prefs.theme) return
                 prefs.theme = selected
                 recreate()
             }
@@ -88,17 +75,7 @@ class SettingsActivity : BaseActivity() {
         binding.switchFullscreen.isChecked = prefs.fullscreen
         binding.switchFullscreen.setOnCheckedChangeListener { _, checked ->
             prefs.fullscreen = checked
-            recreate()  // re-apply window flags immediately
-        }
-
-        binding.switchFeaturedLayout.isChecked = prefs.featuredLayout
-        binding.switchFeaturedLayout.setOnCheckedChangeListener { _, checked ->
-            prefs.featuredLayout = checked
-        }
-
-        binding.switchShowRead.isChecked = prefs.showReadArticles
-        binding.switchShowRead.setOnCheckedChangeListener { _, checked ->
-            prefs.showReadArticles = checked
+            recreate()
         }
 
         val sortOptions = arrayOf("Newest first", "Oldest first")
@@ -111,6 +88,30 @@ class SettingsActivity : BaseActivity() {
                 prefs.sortOrder = sortValues[position]
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    private fun setupFeedListSection() {
+        binding.switchFeaturedLayout.isChecked = prefs.featuredLayout
+        binding.switchFeaturedLayout.setOnCheckedChangeListener { _, checked ->
+            prefs.featuredLayout = checked
+        }
+
+        binding.switchShowRead.isChecked = prefs.showReadArticles
+        binding.switchShowRead.setOnCheckedChangeListener { _, checked ->
+            prefs.showReadArticles = checked
+        }
+    }
+
+    private fun setupReaderSection() {
+        binding.switchHeroImage.isChecked = prefs.showHeroImage
+        binding.switchHeroImage.setOnCheckedChangeListener { _, checked ->
+            prefs.showHeroImage = checked
+        }
+
+        binding.switchAutoMarkRead.isChecked = prefs.autoMarkRead
+        binding.switchAutoMarkRead.setOnCheckedChangeListener { _, checked ->
+            prefs.autoMarkRead = checked
         }
     }
 
@@ -127,16 +128,25 @@ class SettingsActivity : BaseActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
-        binding.switchAutoMarkRead.isChecked = prefs.autoMarkRead
-        binding.switchAutoMarkRead.setOnCheckedChangeListener { _, checked ->
-            prefs.autoMarkRead = checked
-        }
-
         binding.btnClearCache.setOnClickListener {
             lifecycleScope.launch {
                 repository.clearFetchedContent()
                 Toast.makeText(this@SettingsActivity, "Cache cleared", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    private fun setupDangerZone() {
+        binding.btnLogout.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Reset App")
+                .setMessage("This will clear all PIN settings and remove all local data. Continue?")
+                .setPositiveButton("Reset") { _, _ ->
+                    storage.clearAll()
+                    finishAffinity()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
         }
     }
 

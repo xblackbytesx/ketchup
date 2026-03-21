@@ -12,27 +12,29 @@ class ArticleRenderer(private val context: Context) {
     }
     private val dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
 
-    fun render(article: Article, colors: RendererColors): String {
+    fun render(article: Article, colors: RendererColors, showHeroImage: Boolean = true): String {
         val body = article.summary?.sanitizeHtml()
             ?: "<p class=\"no-content\">No article content in the feed.<br>Tap the button below to fetch the full article.</p>"
+        val hero = if (showHeroImage) buildHeroImage(article.thumbnailUrl, body) else ""
         return template
             .replace("{{title}}", article.title.escapeHtml())
             .replace("{{feed_name}}", article.feedTitle.escapeHtml())
             .replace("{{byline}}", buildByline(article).escapeHtml())
-            .replace("{{hero_image}}", buildHeroImage(article.thumbnailUrl, body))
+            .replace("{{hero_image}}", hero)
             .replace("{{body}}", body)
             .replace("{{color_bg}}", colors.bg)
             .replace("{{color_fg}}", colors.fg)
             .replace("{{color_accent}}", colors.accent)
     }
 
-    fun renderWithFullContent(article: Article, rawHtml: String, colors: RendererColors): String {
+    fun renderWithFullContent(article: Article, rawHtml: String, colors: RendererColors, showHeroImage: Boolean = true): String {
         val sanitized = rawHtml.sanitizeHtml()
+        val hero = if (showHeroImage) buildHeroImage(article.thumbnailUrl, sanitized) else ""
         return template
             .replace("{{title}}", article.title.escapeHtml())
             .replace("{{feed_name}}", article.feedTitle.escapeHtml())
             .replace("{{byline}}", buildByline(article).escapeHtml())
-            .replace("{{hero_image}}", buildHeroImage(article.thumbnailUrl, sanitized))
+            .replace("{{hero_image}}", hero)
             .replace("{{body}}", sanitized)
             .replace("{{color_bg}}", colors.bg)
             .replace("{{color_fg}}", colors.fg)

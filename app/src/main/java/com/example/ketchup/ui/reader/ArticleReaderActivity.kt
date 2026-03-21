@@ -249,11 +249,12 @@ class ArticleReaderActivity : BaseActivity() {
                 repository.isFetchCacheValid(article.fetchedAt)
 
         val colors = resolveColors()
+        val heroEnabled = prefs.showHeroImage
         val html = if (useFetched) {
             showingFetchedContent = true
-            renderer.renderWithFullContent(article, article.fetchedContent!!, colors)
+            renderer.renderWithFullContent(article, article.fetchedContent!!, colors, heroEnabled)
         } else {
-            renderer.render(article, colors)
+            renderer.render(article, colors, heroEnabled)
         }
 
         binding.webView.loadDataWithBaseURL(
@@ -278,7 +279,7 @@ class ArticleReaderActivity : BaseActivity() {
                 val rawHtml = updated?.fetchedContent
                 if (rawHtml != null) {
                     showingFetchedContent = true
-                    val html = renderer.renderWithFullContent(article, rawHtml, resolveColors())
+                    val html = renderer.renderWithFullContent(article, rawHtml, resolveColors(), prefs.showHeroImage)
                     binding.webView.loadDataWithBaseURL(
                         "https://appassets.androidplatform.net/",
                         html, "text/html", "UTF-8", null
