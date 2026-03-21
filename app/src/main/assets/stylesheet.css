@@ -140,6 +140,15 @@ iframe {
   max-width: 100%;
 }
 
+/* Neutralize layout tags that survive inside article content */
+#article-body article,
+#article-body section {
+  display: block;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
 .no-content {
   text-align: center;
   opacity: 0.5;

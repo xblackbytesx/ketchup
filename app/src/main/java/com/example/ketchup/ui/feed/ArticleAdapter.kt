@@ -49,6 +49,9 @@ class ArticleAdapter(
             override fun areContentsTheSame(oldItem: Article, newItem: Article) = oldItem == newItem
         }
 
+        fun decodeEntities(text: String): String =
+            Html.fromHtml(text, Html.FROM_HTML_MODE_LEGACY).toString()
+
         fun htmlToSnippet(html: String?): String {
             if (html.isNullOrBlank()) return ""
             val plain = Html.fromHtml(html, Html.FROM_HTML_MODE_COMPACT).toString()
@@ -117,8 +120,8 @@ class ArticleAdapter(
 
         fun bind(article: Article, timeStr: String, alpha: Float, faviconUrl: String?) {
             itemView.alpha = alpha
-            tvTitle.text = article.title
-            tvFeed.text = article.feedTitle
+            tvTitle.text = decodeEntities(article.title)
+            tvFeed.text = decodeEntities(article.feedTitle)
             tvDate.text = timeStr
 
             loadFavicon(ivFavicon, faviconUrl)
@@ -149,8 +152,8 @@ class ArticleAdapter(
 
         fun bind(article: Article, timeStr: String, alpha: Float, faviconUrl: String?) {
             itemView.alpha = alpha
-            tvTitle.text = article.title
-            tvFeed.text = article.feedTitle
+            tvTitle.text = decodeEntities(article.title)
+            tvFeed.text = decodeEntities(article.feedTitle)
             tvDate.text = timeStr
 
             loadFavicon(ivFavicon, faviconUrl)
@@ -177,8 +180,8 @@ class ArticleAdapter(
 
         fun bind(article: Article, timeStr: String, alpha: Float, faviconUrl: String?) {
             itemView.alpha = alpha
-            tvTitle.text = article.title
-            tvFeed.text = article.feedTitle
+            tvTitle.text = decodeEntities(article.title)
+            tvFeed.text = decodeEntities(article.feedTitle)
             tvDate.text = timeStr
 
             loadFavicon(ivFavicon, faviconUrl)

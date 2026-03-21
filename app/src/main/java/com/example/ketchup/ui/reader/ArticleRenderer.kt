@@ -1,6 +1,7 @@
 package com.example.ketchup.ui.reader
 
 import android.content.Context
+import android.text.Html
 import com.example.ketchup.data.model.Article
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -60,11 +61,21 @@ class ArticleRenderer(private val context: Context) {
 
 data class RendererColors(val bg: String, val fg: String, val accent: String)
 
+private fun String.decodeEntities(): String =
+    Html.fromHtml(this, Html.FROM_HTML_MODE_LEGACY).toString()
+
 private fun String.escapeHtml(): String =
-    replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+    decodeEntities()
+        .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
 private val DANGEROUS_TAGS = Regex(
     "<\\s*/?(script|iframe|object|embed|form|applet|link|meta|base|svg|math)(\\s[^>]*)?>",
+    RegexOption.IGNORE_CASE
+)
+// Layout containers that trigger max-width/padding when nested inside the template's own <article>.
+// Stripping the tags preserves their inner content (unwrapping).
+private val LAYOUT_TAGS = Regex(
+    "<\\s*/?(article|section)(\\s[^>]*)?>",
     RegexOption.IGNORE_CASE
 )
 private val EVENT_HANDLERS = Regex(
@@ -78,6 +89,7 @@ private val STYLE_URL = Regex(
 
 private fun String.sanitizeHtml(): String {
     var s = DANGEROUS_TAGS.replace(this, "")
+    s = LAYOUT_TAGS.replace(s, "")
     s = EVENT_HANDLERS.replace(s, "")
     // Strip url() from inline style attributes to prevent CSS exfiltration
     s = s.replace(Regex("style\\s*=\\s*\"[^\"]*\"", RegexOption.IGNORE_CASE)) { match ->
