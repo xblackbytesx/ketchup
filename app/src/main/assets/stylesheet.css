@@ -45,6 +45,15 @@ header {
   margin: 0;
 }
 
+.hero-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 6px;
+  margin: 0 0 24px;
+  object-fit: contain;
+}
+
 a {
   color: var(--accent);
   text-decoration: none;

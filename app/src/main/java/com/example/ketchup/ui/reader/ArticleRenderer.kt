@@ -19,6 +19,7 @@ class ArticleRenderer(private val context: Context) {
             .replace("{{title}}", article.title.escapeHtml())
             .replace("{{feed_name}}", article.feedTitle.escapeHtml())
             .replace("{{byline}}", buildByline(article).escapeHtml())
+            .replace("{{hero_image}}", buildHeroImage(article.thumbnailUrl, body))
             .replace("{{body}}", body)
             .replace("{{color_bg}}", colors.bg)
             .replace("{{color_fg}}", colors.fg)
@@ -26,11 +27,13 @@ class ArticleRenderer(private val context: Context) {
     }
 
     fun renderWithFullContent(article: Article, rawHtml: String, colors: RendererColors): String {
+        val sanitized = rawHtml.sanitizeHtml()
         return template
             .replace("{{title}}", article.title.escapeHtml())
             .replace("{{feed_name}}", article.feedTitle.escapeHtml())
             .replace("{{byline}}", buildByline(article).escapeHtml())
-            .replace("{{body}}", rawHtml.sanitizeHtml())
+            .replace("{{hero_image}}", buildHeroImage(article.thumbnailUrl, sanitized))
+            .replace("{{body}}", sanitized)
             .replace("{{color_bg}}", colors.bg)
             .replace("{{color_fg}}", colors.fg)
             .replace("{{color_accent}}", colors.accent)
@@ -39,6 +42,17 @@ class ArticleRenderer(private val context: Context) {
     private fun buildByline(article: Article): String {
         val dateStr = dateFormat.format(Date(article.publishedMs))
         return listOfNotNull(article.author, dateStr).joinToString(" · ")
+    }
+
+    /**
+     * Builds a hero image tag from the article's thumbnail URL. Returns empty
+     * string when there is no thumbnail or when the same URL already appears
+     * in the body content (avoids showing the image twice).
+     */
+    private fun buildHeroImage(thumbnailUrl: String?, bodyHtml: String): String {
+        if (thumbnailUrl.isNullOrBlank()) return ""
+        if (bodyHtml.contains(thumbnailUrl)) return ""
+        return "<img class=\"hero-image\" src=\"${thumbnailUrl.escapeHtml()}\" alt=\"\" />"
     }
 }
 
