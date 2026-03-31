@@ -3,3 +3,4 @@
 -dontwarn okhttp3.**
 -dontwarn okio.**
 -dontwarn coil3.**
+-dontwarn com.google.errorprone.annotations.**

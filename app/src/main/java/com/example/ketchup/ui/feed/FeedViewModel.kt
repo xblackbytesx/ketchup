@@ -1,8 +1,8 @@
 package com.example.ketchup.ui.feed
 
-import android.app.Application
 import android.util.Log
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.ketchup.KetchupApplication
 import com.example.ketchup.data.PreferencesManager
@@ -13,9 +13,8 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-class FeedViewModel(application: Application) : AndroidViewModel(application) {
-    private val prefs = PreferencesManager(application)
-    private val app = application as KetchupApplication
+class FeedViewModel(private val app: KetchupApplication) : ViewModel() {
+    private val prefs = PreferencesManager(app)
     private val repository = app.repository
 
     private val _showRead = MutableStateFlow(prefs.showReadArticles)
@@ -24,11 +23,13 @@ class FeedViewModel(application: Application) : AndroidViewModel(application) {
     private val _navFilter = MutableStateFlow<NavFilter>(NavFilter.AllArticles)
     val navFilter: StateFlow<NavFilter> = _navFilter.asStateFlow()
 
-    // Separate refresh flag — not entangled with the article list flow
     private val _isRefreshing = MutableStateFlow(false)
 
     private val _syncError = Channel<String>(Channel.BUFFERED)
     val syncError: Flow<String> = _syncError.receiveAsFlow()
+
+    private val _showAddFeedDialog = MutableStateFlow(false)
+    val showAddFeedDialog: StateFlow<Boolean> = _showAddFeedDialog.asStateFlow()
 
     val feeds: StateFlow<List<FeedInfo>> = repository.observeFeeds()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -104,4 +105,29 @@ class FeedViewModel(application: Application) : AndroidViewModel(application) {
     fun updateFeed(feedId: String, title: String, categoryLabel: String) {
         viewModelScope.launch { repository.updateFeed(feedId, title, categoryLabel) }
     }
+
+    fun showAddFeedDialog() {
+        _showAddFeedDialog.value = true
+    }
+
+    fun dismissAddFeedDialog() {
+        _showAddFeedDialog.value = false
+    }
+
+    fun addFeed(url: String) {
+        _showAddFeedDialog.value = false
+        viewModelScope.launch {
+            try {
+                repository.addFeed(url)
+            } catch (e: Exception) {
+                Log.e("FeedViewModel", "Add feed error", e)
+                _syncError.trySend("Failed to add feed: ${e.message}")
+            }
+        }
+    }
+}
+
+class FeedViewModelFactory(private val app: KetchupApplication) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T = FeedViewModel(app) as T
 }

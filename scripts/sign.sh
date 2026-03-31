@@ -2,7 +2,7 @@
 set -euo pipefail
 source .env
 ANDROID_HOME="${ANDROID_HOME:-/opt/android-sdk}"
-BUILD_TOOLS="${ANDROID_HOME}/build-tools/35.0.0"
+BUILD_TOOLS="${ANDROID_HOME}/build-tools/36.0.0"
 INPUT="output/ketchup-release-unsigned.apk"
 ALIGNED="output/ketchup-release-aligned.apk"
 OUTPUT="output/ketchup-signed.apk"

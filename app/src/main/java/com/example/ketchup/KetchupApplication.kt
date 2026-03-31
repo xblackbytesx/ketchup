@@ -10,8 +10,10 @@ import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.svg.SvgDecoder
+import com.example.ketchup.auth.AuthManager
 import com.example.ketchup.data.ArticleRepository
 import com.example.ketchup.data.PreferencesManager
+import com.example.ketchup.data.SecureStorage
 import com.example.ketchup.data.db.AppDatabase
 import com.example.ketchup.network.ArticleFetcher
 import okhttp3.OkHttpClient
@@ -38,10 +40,16 @@ class KetchupApplication : Application(), SingletonImageLoader.Factory {
         ArticleRepository(
             db = AppDatabase.getInstance(this),
             fetcher = fetcher,
-            prefs = PreferencesManager(this),
+            prefs = prefsManager,
             httpClient = httpClient
         )
     }
+
+    val prefsManager: PreferencesManager by lazy { PreferencesManager(this) }
+
+    val secureStorage: SecureStorage by lazy { SecureStorage(this) }
+
+    val authManager: AuthManager by lazy { AuthManager(secureStorage) }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader {
         val components = ComponentRegistry.Builder()
@@ -74,6 +82,6 @@ class KetchupApplication : Application(), SingletonImageLoader.Factory {
     }
 
     companion object {
-        private const val LOCK_TIMEOUT_MS = 60_000L // 60 seconds
+        const val LOCK_TIMEOUT_MS = 60_000L
     }
 }

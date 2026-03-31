@@ -17,37 +17,12 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:noHistory="true">
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <activity
-            android:name=".ui.setup.SetupActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
-
-        <activity
-            android:name=".ui.lock.LockActivity"
-            android:exported="false"
-            android:windowSoftInputMode="stateHidden"
-            android:showOnLockScreen="true" />
-
-        <activity
-            android:name=".ui.feed.FeedActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
-
-        <activity
-            android:name=".ui.reader.ArticleReaderActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".ui.settings.SettingsActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustResize" />
 
     </application>
 
