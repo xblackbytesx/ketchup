@@ -177,6 +177,7 @@ class SettingsViewModel(private val app: KetchupApplication) : ViewModel() {
             sortOrder = "newest_first"
             fullscreen = true
             showHeroImage = true
+            swipeNavigation = true
         }
     }
 

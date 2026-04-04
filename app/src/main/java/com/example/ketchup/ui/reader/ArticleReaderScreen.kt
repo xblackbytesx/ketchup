@@ -222,6 +222,10 @@ fun ArticleReaderScreen(
                         null,
                     )
                 },
+                onRelease = { webView ->
+                    webView.stopLoading()
+                    webView.destroy()
+                },
             )
         }
 

@@ -1,13 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Ketchup</string>
-    <string name="tagline">The feed reader where you catch up for the day.</string>
-    <string name="action_settings">Settings</string>
-    <string name="action_refresh">Refresh</string>
-    <string name="action_toggle_read">Toggle read</string>
-    <string name="fetch_full_article">Fetch full article</string>
-    <string name="pin_error_wrong">Wrong PIN</string>
-    <string name="pin_error_locked">Too many attempts</string>
-    <string name="nav_drawer_open">Open navigation drawer</string>
-    <string name="nav_drawer_close">Close navigation drawer</string>
 </resources>

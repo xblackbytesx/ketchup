@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.ketchup.KetchupApplication
-import com.example.ketchup.data.PreferencesManager
 import com.example.ketchup.data.model.FeedInfo
 import com.example.ketchup.data.model.NavFilter
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -14,7 +13,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class FeedViewModel(private val app: KetchupApplication) : ViewModel() {
-    private val prefs = PreferencesManager(app)
+    private val prefs = app.prefsManager
     private val repository = app.repository
 
     private val _showRead = MutableStateFlow(prefs.showReadArticles)
