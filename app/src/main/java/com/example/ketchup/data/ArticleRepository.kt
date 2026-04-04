@@ -175,7 +175,7 @@ class ArticleRepository(
             val request = Request.Builder().url(url).build()
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@use null
-                val body = response.body ?: return@use null
+                val body = response.body
                 val contentLength = body.contentLength()
                 if (contentLength > MAX_FEED_BYTES) return@use null
                 val source = body.source()

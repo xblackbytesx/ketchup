@@ -20,7 +20,7 @@ class ArticleFetcher(private val client: OkHttpClient) {
                     .build()
                 client.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) return@withContext null
-                    val body = response.body ?: return@withContext null
+                    val body = response.body
                     // Reject by Content-Length if server declares it's too large
                     val contentLength = body.contentLength()
                     if (contentLength > MAX_BODY_BYTES) return@withContext null

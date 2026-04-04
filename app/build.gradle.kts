@@ -73,7 +73,7 @@ android {
 
 dependencies {
     // Compose BOM
-    val composeBom = platform("androidx.compose:compose-bom:2026.03.00")
+    val composeBom = platform("androidx.compose:compose-bom:2026.03.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
@@ -96,7 +96,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
 
     // HTTP
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp:5.3.0")
 
     // Coil 3 for Compose (favicons + article images)
     implementation("io.coil-kt.coil3:coil-compose:3.4.0")

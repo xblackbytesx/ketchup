@@ -1,3 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <color name="ketchup_primary">#C0392B</color>
+    <color name="ketchup_on_primary">#FFFFFF</color>
+    <color name="ketchup_background_dark">#1A1A1A</color>
 </resources>

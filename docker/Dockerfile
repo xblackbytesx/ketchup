@@ -15,9 +15,9 @@ RUN mkdir -p ${ANDROID_HOME}/cmdline-tools && \
 RUN yes | sdkmanager --licenses && \
     sdkmanager "platform-tools" "build-tools;36.0.0" "platforms;android-36" "ndk;${NDK_VERSION}"
 
-RUN wget -q https://services.gradle.org/distributions/gradle-9.3.1-bin.zip -O /tmp/gradle.zip && \
+RUN wget -q https://services.gradle.org/distributions/gradle-9.4.1-bin.zip -O /tmp/gradle.zip && \
     unzip -q /tmp/gradle.zip -d /opt && \
-    ln -s /opt/gradle-9.3.1/bin/gradle /usr/local/bin/gradle && \
+    ln -s /opt/gradle-9.4.1/bin/gradle /usr/local/bin/gradle && \
     rm /tmp/gradle.zip
 
 WORKDIR /workspace
