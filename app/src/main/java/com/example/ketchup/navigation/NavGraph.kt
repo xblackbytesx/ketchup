@@ -7,6 +7,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -97,7 +100,12 @@ fun KetchupNavGraph(app: KetchupApplication, activity: FragmentActivity) {
             )
         }
 
-        composable<ArticleReaderRoute> { backStackEntry ->
+        composable<ArticleReaderRoute>(
+            enterTransition = { fadeIn(tween(200)) },
+            exitTransition = { fadeOut(tween(200)) },
+            popEnterTransition = { fadeIn(tween(200)) },
+            popExitTransition = { fadeOut(tween(200)) },
+        ) { backStackEntry ->
             val route = backStackEntry.toRoute<ArticleReaderRoute>()
             ArticleReaderScreen(
                 app = app,

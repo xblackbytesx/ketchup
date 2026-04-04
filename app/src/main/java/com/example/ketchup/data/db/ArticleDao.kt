@@ -68,4 +68,38 @@ interface ArticleDao {
 
     @Query("DELETE FROM articles WHERE feedId = :feedId")
     suspend fun deleteByFeedId(feedId: String)
+
+    // ID-only queries for navigation — avoids deserializing full entities (especially fetchedContent)
+    @Query("SELECT id FROM articles ORDER BY publishedMs DESC")
+    suspend fun getAllArticleIds(): List<String>
+
+    @Query("SELECT id FROM articles ORDER BY publishedMs ASC")
+    suspend fun getAllArticleIdsOldestFirst(): List<String>
+
+    @Query("SELECT id FROM articles WHERE isRead = 0 ORDER BY publishedMs DESC")
+    suspend fun getUnreadArticleIds(): List<String>
+
+    @Query("SELECT id FROM articles WHERE isRead = 0 ORDER BY publishedMs ASC")
+    suspend fun getUnreadArticleIdsOldestFirst(): List<String>
+
+    @Query("SELECT id FROM articles WHERE publishedMs >= :startOfDayMs ORDER BY publishedMs DESC")
+    suspend fun getTodayArticleIds(startOfDayMs: Long): List<String>
+
+    @Query("SELECT id FROM articles WHERE publishedMs >= :startOfDayMs AND isRead = 0 ORDER BY publishedMs DESC")
+    suspend fun getTodayUnreadArticleIds(startOfDayMs: Long): List<String>
+
+    @Query("SELECT id FROM articles WHERE feedId = :feedId ORDER BY publishedMs DESC")
+    suspend fun getArticleIdsByFeed(feedId: String): List<String>
+
+    @Query("SELECT id FROM articles WHERE feedId = :feedId AND isRead = 0 ORDER BY publishedMs DESC")
+    suspend fun getArticleIdsByFeedUnread(feedId: String): List<String>
+
+    @Query("SELECT id FROM articles WHERE feedId IN (:feedIds) ORDER BY publishedMs DESC")
+    suspend fun getArticleIdsByFeeds(feedIds: List<String>): List<String>
+
+    @Query("SELECT id FROM articles WHERE feedId IN (:feedIds) AND isRead = 0 ORDER BY publishedMs DESC")
+    suspend fun getArticleIdsByFeedsUnread(feedIds: List<String>): List<String>
+
+    @Query("SELECT id FROM articles WHERE isStarred = 1 ORDER BY publishedMs DESC")
+    suspend fun getStarredArticleIds(): List<String>
 }

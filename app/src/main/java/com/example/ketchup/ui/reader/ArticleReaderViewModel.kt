@@ -41,31 +41,13 @@ class ArticleReaderViewModel(
 
     private fun loadArticleAndList() {
         viewModelScope.launch {
+            // Step 1: single-row lookup — fast, show article immediately
             val article = withContext(Dispatchers.IO) {
                 repository.getArticleById(initialArticleId)
             } ?: run {
                 _uiState.value = _uiState.value.copy(isLoading = false)
                 return@launch
             }
-
-            // Reconstruct article list from the same filter
-            val articleList = withContext(Dispatchers.IO) {
-                try {
-                    val filter = filterId.toNavFilter()
-                    val allFeeds = repository.observeFeeds().first()
-                    val feedIds = if (filter is NavFilter.ByCategory) {
-                        allFeeds.filter { it.categoryLabel == filter.label }.map { it.id }
-                    } else emptyList()
-                    repository.observeArticlesByFilter(filter, prefs.showReadArticles, feedIds)
-                        .first()
-                        .map { it.id }
-                } catch (e: Exception) {
-                    Log.e("ArticleReaderViewModel", "Failed to load article list", e)
-                    listOf(initialArticleId)
-                }
-            }
-
-            val position = articleList.indexOf(initialArticleId).coerceAtLeast(0)
 
             if (prefs.autoMarkRead) {
                 withContext(Dispatchers.IO) { repository.markRead(initialArticleId) }
@@ -74,10 +56,29 @@ class ArticleReaderViewModel(
             _uiState.value = _uiState.value.copy(
                 article = article,
                 isLoading = false,
-                articleList = articleList,
-                position = position,
                 showingFetchedContent = article.fetchedContent != null &&
                         repository.isFetchCacheValid(article.fetchedAt),
+            )
+
+            // Step 2: load article list in background for prev/next navigation
+            val articleList = withContext(Dispatchers.IO) {
+                try {
+                    val filter = filterId.toNavFilter()
+                    val allFeeds = repository.observeFeeds().first()
+                    val feedIds = if (filter is NavFilter.ByCategory) {
+                        allFeeds.filter { it.categoryLabel == filter.label }.map { it.id }
+                    } else emptyList()
+                    repository.getArticleIdsByFilter(filter, prefs.showReadArticles, feedIds)
+                } catch (e: Exception) {
+                    Log.e("ArticleReaderViewModel", "Failed to load article list", e)
+                    listOf(initialArticleId)
+                }
+            }
+
+            val position = articleList.indexOf(initialArticleId).coerceAtLeast(0)
+            _uiState.value = _uiState.value.copy(
+                articleList = articleList,
+                position = position,
             )
         }
     }
@@ -97,6 +98,25 @@ class ArticleReaderViewModel(
                 position = nextPos,
                 showingFetchedContent = nextArticle.fetchedContent != null &&
                         repository.isFetchCacheValid(nextArticle.fetchedAt),
+            )
+        }
+    }
+
+    fun navigatePrev() {
+        val state = _uiState.value
+        val prevPos = state.position - 1
+        val prevId = state.articleList.getOrNull(prevPos) ?: return
+
+        viewModelScope.launch {
+            val prevArticle = withContext(Dispatchers.IO) { repository.getArticleById(prevId) } ?: return@launch
+            if (prefs.autoMarkRead) {
+                withContext(Dispatchers.IO) { repository.markRead(prevId) }
+            }
+            _uiState.value = _uiState.value.copy(
+                article = prevArticle,
+                position = prevPos,
+                showingFetchedContent = prevArticle.fetchedContent != null &&
+                        repository.isFetchCacheValid(prevArticle.fetchedAt),
             )
         }
     }

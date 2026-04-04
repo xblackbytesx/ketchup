@@ -77,6 +77,28 @@ class ArticleRepository(
         return entityFlow.map { entities -> entities.map { it.toDomain() } }
     }
 
+    suspend fun getArticleIdsByFilter(
+        navFilter: NavFilter,
+        showRead: Boolean,
+        feedIds: List<String> = emptyList(),
+    ): List<String> = withContext(Dispatchers.IO) {
+        val startOfDay = getStartOfDayMs()
+        when {
+            navFilter is NavFilter.Starred -> dao.getStarredArticleIds()
+            navFilter is NavFilter.Today && showRead -> dao.getTodayArticleIds(startOfDay)
+            navFilter is NavFilter.Today && !showRead -> dao.getTodayUnreadArticleIds(startOfDay)
+            navFilter is NavFilter.ByFeed && showRead -> dao.getArticleIdsByFeed(navFilter.feedId)
+            navFilter is NavFilter.ByFeed && !showRead -> dao.getArticleIdsByFeedUnread(navFilter.feedId)
+            navFilter is NavFilter.ByCategory && feedIds.isNotEmpty() && showRead -> dao.getArticleIdsByFeeds(feedIds)
+            navFilter is NavFilter.ByCategory && feedIds.isNotEmpty() && !showRead -> dao.getArticleIdsByFeedsUnread(feedIds)
+            navFilter is NavFilter.ByCategory && feedIds.isEmpty() -> emptyList()
+            navFilter is NavFilter.AllArticles && showRead && prefs.sortOrder == "oldest_first" -> dao.getAllArticleIdsOldestFirst()
+            navFilter is NavFilter.AllArticles && showRead -> dao.getAllArticleIds()
+            navFilter is NavFilter.AllArticles && prefs.sortOrder == "oldest_first" -> dao.getUnreadArticleIdsOldestFirst()
+            else -> dao.getUnreadArticleIds()
+        }
+    }
+
     private val syncSemaphore = Semaphore(5)
 
     suspend fun syncArticles(): Int = withContext(Dispatchers.IO) {

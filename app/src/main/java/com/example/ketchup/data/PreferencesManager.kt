@@ -38,6 +38,10 @@ class PreferencesManager(context: Context) {
         get() = prefs.getBoolean(KEY_SHOW_HERO_IMAGE, true)
         set(value) = prefs.edit().putBoolean(KEY_SHOW_HERO_IMAGE, value).apply()
 
+    var swipeNavigation: Boolean
+        get() = prefs.getBoolean(KEY_SWIPE_NAVIGATION, true)
+        set(value) = prefs.edit().putBoolean(KEY_SWIPE_NAVIGATION, value).apply()
+
     companion object {
         private const val KEY_THEME = "theme"
         private const val KEY_SHOW_READ = "show_read_articles"
@@ -47,5 +51,6 @@ class PreferencesManager(context: Context) {
         private const val KEY_SORT_ORDER = "sort_order"
         private const val KEY_FULLSCREEN = "fullscreen"
         private const val KEY_SHOW_HERO_IMAGE = "show_hero_image"
+        private const val KEY_SWIPE_NAVIGATION = "swipe_navigation"
     }
 }

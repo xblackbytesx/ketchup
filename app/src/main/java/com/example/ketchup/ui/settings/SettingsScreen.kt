@@ -186,6 +186,12 @@ fun SettingsScreen(
                     checked = uiState.autoMarkRead,
                     onCheckedChange = { viewModel.setAutoMarkRead(it) },
                 )
+                SettingsSwitchRow(
+                    label = "Swipe to navigate articles",
+                    subtitle = "Swipe left/right in the reader to go to the next or previous article",
+                    checked = uiState.swipeNavigation,
+                    onCheckedChange = { viewModel.setSwipeNavigation(it) },
+                )
             }
 
             // Cache

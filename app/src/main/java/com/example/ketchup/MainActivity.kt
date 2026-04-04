@@ -12,9 +12,11 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
 
         val app = application as KetchupApplication
+        if (app.secureStorage.isPinConfigured() || app.secureStorage.isBiometricEnabled) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
 
         setContent {
             KetchupTheme(theme = app.prefsManager.theme) {

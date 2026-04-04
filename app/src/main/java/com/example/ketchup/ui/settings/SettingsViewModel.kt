@@ -22,6 +22,7 @@ data class SettingsUiState(
     val sortOrder: String = "newest_first",
     val fullscreen: Boolean = true,
     val showHeroImage: Boolean = true,
+    val swipeNavigation: Boolean = true,
     val isPinEnabled: Boolean = false,
     val isBiometricEnabled: Boolean = false,
     val toastMessage: String? = null,
@@ -44,6 +45,7 @@ class SettingsViewModel(private val app: KetchupApplication) : ViewModel() {
             sortOrder = prefs.sortOrder,
             fullscreen = prefs.fullscreen,
             showHeroImage = prefs.showHeroImage,
+            swipeNavigation = prefs.swipeNavigation,
             isPinEnabled = storage.isPinConfigured(),
             isBiometricEnabled = storage.isBiometricEnabled,
         )
@@ -88,6 +90,11 @@ class SettingsViewModel(private val app: KetchupApplication) : ViewModel() {
     fun setShowHeroImage(enabled: Boolean) {
         prefs.showHeroImage = enabled
         _uiState.value = _uiState.value.copy(showHeroImage = enabled)
+    }
+
+    fun setSwipeNavigation(enabled: Boolean) {
+        prefs.swipeNavigation = enabled
+        _uiState.value = _uiState.value.copy(swipeNavigation = enabled)
     }
 
     fun setBiometric(enabled: Boolean) {

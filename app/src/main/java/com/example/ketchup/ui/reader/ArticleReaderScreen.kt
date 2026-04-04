@@ -4,11 +4,15 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +29,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Downloading
 import androidx.compose.material.icons.filled.RssFeed
@@ -42,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +60,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.GestureDetectorCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.webkit.WebViewAssetLoader
 import com.example.ketchup.KetchupApplication
@@ -88,6 +95,11 @@ fun ArticleReaderScreen(
 
     val article = uiState.article ?: return
 
+    // Reset bars to visible whenever we navigate to a different article
+    LaunchedEffect(article.id) {
+        barsVisible = true
+    }
+
     val renderer = remember { ArticleRenderer(context) }
 
     val colors = remember(app.prefsManager.theme, configuration.uiMode) {
@@ -112,67 +124,106 @@ fun ArticleReaderScreen(
                 .build()
         }
 
-        val htmlContent = remember(article, uiState.showingFetchedContent, topBarCssPx) {
-            val raw = if (uiState.showingFetchedContent && article.fetchedContent != null) {
-                renderer.renderWithFullContent(article, article.fetchedContent, colors, heroEnabled)
-            } else {
-                renderer.render(article, colors, heroEnabled)
-            }
-            // Push content below the overlaid top bar so the title is never hidden
-            raw.replace("</head>", "<style>body{padding-top:${topBarCssPx}px}</style></head>")
-        }
-
-        AndroidView(
+        Crossfade(
+            targetState = Pair(article, uiState.showingFetchedContent),
+            animationSpec = tween(durationMillis = 200),
+            label = "article-crossfade",
             modifier = Modifier.fillMaxSize(),
-            factory = { ctx ->
-                WebView(ctx).apply {
-                    setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
-                        val delta = scrollY - oldScrollY
-                        if (abs(delta) > 8) barsVisible = delta < 0
-                    }
-                    webViewClient = object : WebViewClient() {
-                        override fun shouldInterceptRequest(
-                            view: WebView,
-                            request: WebResourceRequest,
-                        ): WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
+        ) { (currentArticle, showFetched) ->
+            val htmlContent = remember(currentArticle, showFetched, topBarCssPx) {
+                val raw = if (showFetched && currentArticle.fetchedContent != null) {
+                    renderer.renderWithFullContent(currentArticle, currentArticle.fetchedContent, colors, heroEnabled)
+                } else {
+                    renderer.render(currentArticle, colors, heroEnabled)
+                }
+                // Push content below the overlaid top bar so the title is never hidden
+                raw.replace("</head>", "<style>body{padding-top:${topBarCssPx}px}</style></head>")
+            }
 
-                        override fun shouldOverrideUrlLoading(
-                            view: WebView,
-                            request: WebResourceRequest,
-                        ): Boolean {
-                            val scheme = request.url.scheme
-                            if (scheme == "http" || scheme == "https") {
-                                try {
-                                    context.startActivity(
-                                        Intent(Intent.ACTION_VIEW, request.url)
-                                    )
-                                } catch (_: Exception) {}
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { ctx ->
+                    val gestureDetector = GestureDetectorCompat(ctx,
+                        object : GestureDetector.SimpleOnGestureListener() {
+                            override fun onFling(
+                                e1: MotionEvent?,
+                                e2: MotionEvent,
+                                velocityX: Float,
+                                velocityY: Float,
+                            ): Boolean {
+                                if (e1 == null) return false
+                                val absVX = abs(velocityX)
+                                val absVY = abs(velocityY)
+                                val deltaX = e2.x - e1.x
+                                val deltaY = e2.y - e1.y
+                                val minSwipePx = ctx.resources.displayMetrics.density * 80
+                                if (absVX > absVY
+                                    && absVX > 800f
+                                    && abs(deltaX) > minSwipePx
+                                    && abs(deltaY) < abs(deltaX) * 1.2f
+                                ) {
+                                    if (!app.prefsManager.swipeNavigation) return false
+                                    if (velocityX < 0) viewModel.navigateNext()
+                                    else viewModel.navigatePrev()
+                                    return true
+                                }
+                                return false
                             }
-                            return true
+                        }
+                    )
+                    WebView(ctx).apply {
+                        setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
+                            val delta = scrollY - oldScrollY
+                            if (abs(delta) > 8) barsVisible = delta < 0
+                        }
+                        setOnTouchListener { _, event ->
+                            gestureDetector.onTouchEvent(event)
+                            false   // don't consume — WebView still handles scrolling
+                        }
+                        webViewClient = object : WebViewClient() {
+                            override fun shouldInterceptRequest(
+                                view: WebView,
+                                request: WebResourceRequest,
+                            ): WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
+
+                            override fun shouldOverrideUrlLoading(
+                                view: WebView,
+                                request: WebResourceRequest,
+                            ): Boolean {
+                                val scheme = request.url.scheme
+                                if (scheme == "http" || scheme == "https") {
+                                    try {
+                                        context.startActivity(
+                                            Intent(Intent.ACTION_VIEW, request.url)
+                                        )
+                                    } catch (_: Exception) {}
+                                }
+                                return true
+                            }
+                        }
+                        settings.apply {
+                            javaScriptEnabled = false
+                            allowFileAccess = false
+                            allowContentAccess = false
+                            setSupportZoom(true)
+                            builtInZoomControls = true
+                            displayZoomControls = false
+                            loadWithOverviewMode = true
+                            useWideViewPort = true
                         }
                     }
-                    settings.apply {
-                        javaScriptEnabled = false
-                        allowFileAccess = false
-                        allowContentAccess = false
-                        setSupportZoom(true)
-                        builtInZoomControls = true
-                        displayZoomControls = false
-                        loadWithOverviewMode = true
-                        useWideViewPort = true
-                    }
-                }
-            },
-            update = { webView ->
-                webView.loadDataWithBaseURL(
-                    "https://appassets.androidplatform.net/",
-                    htmlContent,
-                    "text/html",
-                    "UTF-8",
-                    null,
-                )
-            },
-        )
+                },
+                update = { webView ->
+                    webView.loadDataWithBaseURL(
+                        "https://appassets.androidplatform.net/",
+                        htmlContent,
+                        "text/html",
+                        "UTF-8",
+                        null,
+                    )
+                },
+            )
+        }
 
         AnimatedVisibility(
             visible = barsVisible,
@@ -223,6 +274,7 @@ fun ArticleReaderScreen(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                         thickness = 0.5.dp,
                     )
+                    val hasPrev = uiState.position > 0
                     val hasNext = uiState.position + 1 < uiState.articleList.size
                     Row(
                         modifier = Modifier
@@ -238,6 +290,12 @@ fun ArticleReaderScreen(
                                 contentDescription = if (article.isStarred) "Unstar" else "Star",
                                 tint = if (article.isStarred) KetchupRed else MaterialTheme.colorScheme.onSurface,
                             )
+                        }
+                        IconButton(
+                            onClick = { viewModel.navigatePrev() },
+                            enabled = hasPrev,
+                        ) {
+                            Icon(Icons.Default.ChevronLeft, contentDescription = "Previous article")
                         }
                         IconButton(
                             onClick = { viewModel.navigateNext() },
