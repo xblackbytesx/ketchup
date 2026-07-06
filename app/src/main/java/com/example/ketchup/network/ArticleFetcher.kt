@@ -24,11 +24,12 @@ class ArticleFetcher(private val client: OkHttpClient) {
                     // Reject by Content-Length if server declares it's too large
                     val contentLength = body.contentLength()
                     if (contentLength > MAX_BODY_BYTES) return@withContext null
-                    // Buffer up to MAX_BODY_BYTES from the stream, then read whatever arrived
+                    // Reject oversized bodies outright — truncating mid-document
+                    // (possibly mid-UTF-8-sequence) renders garbage.
                     val source = body.source()
-                    source.request(MAX_BODY_BYTES)
-                    val size = minOf(source.buffer.size, MAX_BODY_BYTES)
-                    source.readUtf8(size)
+                    source.request(MAX_BODY_BYTES + 1)
+                    if (source.buffer.size > MAX_BODY_BYTES) return@withContext null
+                    source.readUtf8()
                 }
             } catch (e: Exception) {
                 null

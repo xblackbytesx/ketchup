@@ -2,7 +2,10 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src https://appassets.androidplatform.net 'unsafe-inline'; img-src https: data:; media-src https: data:;" />
+  <!-- img-src includes http: deliberately: cleartext feeds are a supported
+       configuration (see network_security_config.xml) and their article images
+       are plain-http too. Scripts stay fully blocked via default-src 'none'. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src https://appassets.androidplatform.net 'unsafe-inline'; img-src https: http: data:; media-src https: data:;" />
   <style>:root{--bg:{{color_bg}};--fg:{{color_fg}};--accent:{{color_accent}};}</style>
   <link rel="stylesheet" href="https://appassets.androidplatform.net/assets/stylesheet.css">
 </head>

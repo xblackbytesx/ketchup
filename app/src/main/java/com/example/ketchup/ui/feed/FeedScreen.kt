@@ -254,7 +254,7 @@ fun FeedScreen(
             feed = feed,
             onDismiss = { editFeed = null },
             onConfirm = { title, category ->
-                viewModel.updateFeed(feed.id, title, category)
+                viewModel.updateFeed(feed, title, category)
                 editFeed = null
             },
         )

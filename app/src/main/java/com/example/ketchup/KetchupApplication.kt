@@ -70,15 +70,24 @@ class KetchupApplication : Application(), SingletonImageLoader.Factory {
             }
 
             override fun onStart(owner: LifecycleOwner) {
-                if (isAuthenticated && backgroundedAt > 0L) {
-                    val elapsed = System.currentTimeMillis() - backgroundedAt
-                    if (elapsed > LOCK_TIMEOUT_MS) {
-                        isAuthenticated = false
-                    }
-                }
+                expireAuthIfTimedOut()
                 backgroundedAt = 0L
             }
         })
+    }
+
+    /**
+     * Drops the authenticated state when the app has been backgrounded past
+     * the lock timeout. Also called from the UI's foreground observer, which
+     * navigates to the lock screen — this method is what makes the check
+     * order-independent between the process observer and the UI observer.
+     */
+    fun expireAuthIfTimedOut() {
+        if (isAuthenticated && backgroundedAt > 0L &&
+            System.currentTimeMillis() - backgroundedAt > LOCK_TIMEOUT_MS
+        ) {
+            isAuthenticated = false
+        }
     }
 
     companion object {

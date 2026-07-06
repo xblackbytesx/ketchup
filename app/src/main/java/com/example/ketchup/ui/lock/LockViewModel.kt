@@ -1,6 +1,7 @@
 package com.example.ketchup.ui.lock
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.ketchup.KetchupApplication
 import com.example.ketchup.auth.PinVerifyResult
@@ -22,6 +23,12 @@ class LockViewModel(private val app: KetchupApplication) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LockUiState())
     val uiState: StateFlow<LockUiState> = _uiState
+
+    init {
+        // Surface an in-progress lockout immediately instead of only after the
+        // first failed attempt of this session.
+        checkLockout()
+    }
 
     private val _authenticated = MutableStateFlow(false)
     val authenticated: StateFlow<Boolean> = _authenticated
@@ -97,4 +104,9 @@ class LockViewModel(private val app: KetchupApplication) : ViewModel() {
         app.isAuthenticated = true
         _authenticated.value = true
     }
+}
+
+class LockViewModelFactory(private val app: KetchupApplication) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T = LockViewModel(app) as T
 }

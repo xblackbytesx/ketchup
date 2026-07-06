@@ -39,6 +39,12 @@ import java.util.Locale
 private fun String.stripHtml(): String =
     Html.fromHtml(this, Html.FROM_HTML_MODE_LEGACY).toString().trim()
 
+// Html.fromHtml is expensive and cards recompose whenever the article list
+// re-emits; cache the stripped text per article content.
+@Composable
+private fun rememberStripped(value: String): String =
+    androidx.compose.runtime.remember(value) { value.stripHtml() }
+
 // Hero card — full width, tall image, for every 7th article in featured layout
 @Composable
 fun HeroArticleCard(article: Article, onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -81,7 +87,7 @@ fun HeroArticleCard(article: Article, onClick: () -> Unit, modifier: Modifier = 
                 FeedSourceRow(article)
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = article.title,
+                    text = rememberStripped(article.title),
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = if (article.thumbnailUrl != null) Color.White else MaterialTheme.colorScheme.onSurface,
                     maxLines = 3,
@@ -126,7 +132,7 @@ fun SecondaryArticleCard(article: Article, onClick: () -> Unit, modifier: Modifi
             ) {
                 FeedSourceRow(article)
                 Text(
-                    text = article.title,
+                    text = rememberStripped(article.title),
                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
                     color = if (article.isRead)
                         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
@@ -160,7 +166,7 @@ fun StandardArticleCard(article: Article, onClick: () -> Unit, modifier: Modifie
                 FeedSourceRow(article)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = article.title.stripHtml(),
+                    text = rememberStripped(article.title),
                     style = MaterialTheme.typography.titleSmall,
                     color = if (article.isRead)
                         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
@@ -172,7 +178,7 @@ fun StandardArticleCard(article: Article, onClick: () -> Unit, modifier: Modifie
                 if (!article.summary.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(3.dp))
                     Text(
-                        text = article.summary.stripHtml(),
+                        text = rememberStripped(article.summary),
                         style = MaterialTheme.typography.bodySmall,
                         color = TextMuted,
                         maxLines = 2,

@@ -117,4 +117,10 @@ dependencies {
 
     // Core
     implementation("androidx.core:core-ktx:1.18.0")
+
+    // Unit tests — kxml2 provides a JVM XmlPullParser so FeedParser tests run
+    // without the Android framework.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("net.sf.kxml:kxml2:2.3.0")
+    testImplementation("xmlpull:xmlpull:1.1.3.1")
 }

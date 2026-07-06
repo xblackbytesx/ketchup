@@ -3,12 +3,13 @@ package com.example.ketchup.data
 import android.util.Log
 import com.example.ketchup.data.db.AppDatabase
 import com.example.ketchup.data.db.ArticleEntity
+import com.example.ketchup.data.db.ArticleListEntity
 import com.example.ketchup.data.db.FeedEntity
 import com.example.ketchup.data.model.Article
 import com.example.ketchup.data.model.FeedInfo
 import com.example.ketchup.data.model.NavFilter
 import com.example.ketchup.network.ArticleFetcher
-import com.example.ketchup.network.AtomFeedParser
+import com.example.ketchup.network.FeedParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -21,6 +22,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.ByteArrayInputStream
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -37,7 +39,7 @@ class ArticleRepository(
 
     private val dao = db.articleDao()
     private val feedDao = db.feedDao()
-    private val parser = AtomFeedParser()
+    private val parser = FeedParser()
 
     private val httpClient = httpClient ?: OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -57,10 +59,11 @@ class ArticleRepository(
     fun observeArticlesByFilter(
         navFilter: NavFilter,
         showRead: Boolean,
+        sortOrder: String,
         feedIds: List<String> = emptyList()
     ): Flow<List<Article>> {
         val startOfDay = getStartOfDayMs()
-        val entityFlow: Flow<List<ArticleEntity>> = when {
+        val entityFlow: Flow<List<ArticleListEntity>> = when {
             navFilter is NavFilter.Starred -> dao.observeStarred()
             navFilter is NavFilter.Today && showRead -> dao.observeToday(startOfDay)
             navFilter is NavFilter.Today && !showRead -> dao.observeTodayUnread(startOfDay)
@@ -69,9 +72,9 @@ class ArticleRepository(
             navFilter is NavFilter.ByCategory && feedIds.isNotEmpty() && showRead -> dao.observeByFeeds(feedIds)
             navFilter is NavFilter.ByCategory && feedIds.isNotEmpty() && !showRead -> dao.observeByFeedsUnread(feedIds)
             navFilter is NavFilter.ByCategory && feedIds.isEmpty() -> flowOf(emptyList())
-            navFilter is NavFilter.AllArticles && showRead && prefs.sortOrder == "oldest_first" -> dao.observeAllOldestFirst()
+            navFilter is NavFilter.AllArticles && showRead && sortOrder == "oldest_first" -> dao.observeAllOldestFirst()
             navFilter is NavFilter.AllArticles && showRead -> dao.observeAll()
-            navFilter is NavFilter.AllArticles && prefs.sortOrder == "oldest_first" -> dao.observeUnreadOldestFirst()
+            navFilter is NavFilter.AllArticles && sortOrder == "oldest_first" -> dao.observeUnreadOldestFirst()
             else -> dao.observeUnread()
         }
         return entityFlow.map { entities -> entities.map { it.toDomain() } }
@@ -121,18 +124,30 @@ class ArticleRepository(
         }
     }
 
-    private suspend fun syncFeed(feed: FeedEntity) {
-        val body = fetchFeedBody(feed.feedUrl) ?: return
-        val parsed = parser.parse(body, feed.feedUrl)
+    /** Outcome of a conditional feed fetch. */
+    private sealed class FeedFetch {
+        object NotModified : FeedFetch()
+        data class Success(val body: ByteArray, val etag: String?, val lastModified: String?) : FeedFetch()
+    }
 
-        if (parsed.title != feed.title && parsed.title.isNotBlank()) {
-            feedDao.upsertAll(listOf(feed.copy(title = parsed.title)))
+    private suspend fun syncFeed(feed: FeedEntity) {
+        val fetch = fetchFeed(feed.feedUrl, feed.etag, feed.lastModified)
+        if (fetch is FeedFetch.NotModified) return
+        val (body, etag, lastModified) = fetch as FeedFetch.Success
+
+        val parsed = parser.parse(ByteArrayInputStream(body), feed.feedUrl)
+
+        // Refresh the display title from the feed, but never a user-set one
+        // (the query is a no-op for customized titles).
+        if (parsed.title.isNotBlank() && parsed.title != feed.title) {
+            feedDao.updateAutoTitle(feed.id, parsed.title)
+        }
+        if (etag != feed.etag || lastModified != feed.lastModified) {
+            feedDao.updateHttpValidators(feed.id, etag, lastModified)
         }
 
         val now = System.currentTimeMillis()
-        val existing = dao.getByFeedId(feed.id).associateBy { it.id }
         val entities = parsed.articles.map { article ->
-            val prev = existing[article.id]
             ArticleEntity(
                 id = article.id,
                 title = article.title,
@@ -143,20 +158,35 @@ class ArticleRepository(
                 feedId = feed.id,
                 summary = article.summary,
                 thumbnailUrl = article.thumbnailUrl,
-                isRead = prev?.isRead ?: false,
-                isStarred = prev?.isStarred ?: false,
-                fetchedContent = article.content ?: prev?.fetchedContent,
-                fetchedAt = if (article.content != null) now else prev?.fetchedAt,
+                isRead = false,
+                isStarred = false,
+                fetchedContent = article.content,
+                fetchedAt = if (article.content != null) now else null,
                 syncedAt = now,
                 sourceFaviconUrl = article.sourceFaviconUrl
             )
         }
-        dao.upsertAll(entities)
+        // Existing rows keep isRead/isStarred/fetchedContent; only feed-provided
+        // columns are refreshed.
+        dao.syncUpsert(entities)
+
+        // Retention: drop old articles that have left the source feed. Only
+        // when the parse produced something, so a broken fetch can't trigger
+        // a mass delete.
+        val keep = prefs.retentionMaxArticles
+        if (keep > 0 && parsed.articles.isNotEmpty()) {
+            dao.pruneFeed(feed.id, parsed.articles.map { it.id }, keep)
+        }
     }
 
     suspend fun addFeed(feedUrl: String): FeedInfo = withContext(Dispatchers.IO) {
-        val body = fetchFeedBody(feedUrl) ?: throw Exception("Could not fetch feed — check the URL and your connection")
-        val parsed = parser.parse(body, feedUrl)
+        val fetch = fetchFeed(feedUrl, null, null)
+        val body = (fetch as? FeedFetch.Success)?.body
+            ?: throw Exception("Could not fetch feed — check the URL and your connection")
+        val parsed = parser.parse(ByteArrayInputStream(body), feedUrl)
+        if (parsed.articles.isEmpty()) {
+            throw Exception("No articles found — is this an RSS/Atom feed URL?")
+        }
         val entity = FeedEntity(
             id = feedUrl,
             title = parsed.title,
@@ -170,22 +200,33 @@ class ArticleRepository(
         entity.toDomain()
     }
 
-    private fun fetchFeedBody(url: String): String? {
-        return try {
-            val request = Request.Builder().url(url).build()
-            httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@use null
-                val body = response.body
-                val contentLength = body.contentLength()
-                if (contentLength > MAX_FEED_BYTES) return@use null
-                val source = body.source()
-                source.request(MAX_FEED_BYTES)
-                val size = minOf(source.buffer.size, MAX_FEED_BYTES)
-                source.readUtf8(size)
+    /**
+     * Fetches feed XML with HTTP cache validators. Oversized bodies are
+     * rejected outright — a truncated document would only fail later in the
+     * XML parser with a misleading error.
+     */
+    private fun fetchFeed(url: String, etag: String?, lastModified: String?): FeedFetch {
+        val request = Request.Builder().url(url).apply {
+            if (etag != null) header("If-None-Match", etag)
+            if (lastModified != null) header("If-Modified-Since", lastModified)
+        }.build()
+        httpClient.newCall(request).execute().use { response ->
+            if (response.code == 304) return FeedFetch.NotModified
+            if (!response.isSuccessful) throw Exception("Feed returned HTTP ${response.code}")
+            val body = response.body
+            if (body.contentLength() > MAX_FEED_BYTES) {
+                throw Exception("Feed exceeds ${MAX_FEED_BYTES / (1024 * 1024)} MB")
             }
-        } catch (e: Exception) {
-            Log.w("ArticleRepository", "fetchFeedBody failed for $url", e)
-            null
+            val source = body.source()
+            source.request(MAX_FEED_BYTES + 1)
+            if (source.buffer.size > MAX_FEED_BYTES) {
+                throw Exception("Feed exceeds ${MAX_FEED_BYTES / (1024 * 1024)} MB")
+            }
+            return FeedFetch.Success(
+                body = source.buffer.readByteArray(),
+                etag = response.header("ETag"),
+                lastModified = response.header("Last-Modified"),
+            )
         }
     }
 
@@ -244,8 +285,19 @@ class ArticleRepository(
         feedDao.deleteById(feedId)
     }
 
-    suspend fun updateFeed(feedId: String, title: String, categoryLabel: String) = withContext(Dispatchers.IO) {
-        feedDao.updateTitleAndCategory(feedId, title, categoryLabel)
+    suspend fun updateFeed(
+        feedId: String,
+        title: String,
+        categoryLabel: String,
+        isTitleCustomized: Boolean,
+    ) = withContext(Dispatchers.IO) {
+        feedDao.updateTitleAndCategory(feedId, title, categoryLabel, isTitleCustomized)
+    }
+
+    /** Deletes every feed and article; used by the settings "Reset app" action. */
+    suspend fun wipeAllData() = withContext(Dispatchers.IO) {
+        dao.deleteAll()
+        feedDao.deleteAll()
     }
 
     suspend fun exportFeedsJson(): String = withContext(Dispatchers.IO) {

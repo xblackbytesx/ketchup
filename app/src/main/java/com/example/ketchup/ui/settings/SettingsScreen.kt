@@ -1,5 +1,7 @@
 package com.example.ketchup.ui.settings
 
+import android.app.Activity
+import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
@@ -64,6 +66,7 @@ fun SettingsScreen(
     val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModelFactory(app))
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val activity = context as? Activity
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Show toast messages via snackbar
@@ -211,6 +214,19 @@ fun SettingsScreen(
                         }
                     }
                 }
+                SettingsRow(label = "Articles kept per feed") {
+                    val options = listOf(50, 100, 200, 500, 0)
+                    val labels = listOf("50", "100", "200", "500", "∞")
+                    SingleChoiceSegmentedButtonRow {
+                        options.forEachIndexed { index, count ->
+                            SegmentedButton(
+                                selected = uiState.retentionMaxArticles == count,
+                                onClick = { viewModel.setRetentionMaxArticles(count) },
+                                shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                            ) { Text(labels[index], style = MaterialTheme.typography.labelSmall) }
+                        }
+                    }
+                }
                 SettingsActionRow(
                     label = "Clear fetched content",
                     onClick = { viewModel.clearCache() },
@@ -242,7 +258,14 @@ fun SettingsScreen(
                     label = "PIN lock",
                     checked = uiState.isPinEnabled,
                     onCheckedChange = { enabled ->
-                        if (enabled) showSetPinDialog = true else viewModel.clearPin()
+                        if (enabled) {
+                            showSetPinDialog = true
+                        } else {
+                            viewModel.clearPin()
+                            // Screenshot protection follows the PIN immediately,
+                            // not on the next app launch.
+                            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                        }
                     },
                 )
                 if (uiState.isPinEnabled) {
@@ -283,6 +306,7 @@ fun SettingsScreen(
             onConfirm = { pin ->
                 if (pin.length == 4 && pin.all { it.isDigit() }) {
                     viewModel.setPin(pin)
+                    activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
                     showSetPinDialog = false
                 }
             },
@@ -314,9 +338,11 @@ fun SettingsScreen(
             text = { Text("This will clear all PIN settings and remove all local data. Continue?") },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.resetApp()
                     showResetDialog = false
-                    onResetApp()
+                    viewModel.resetApp {
+                        activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                        onResetApp()
+                    }
                 }) { Text("Reset", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {

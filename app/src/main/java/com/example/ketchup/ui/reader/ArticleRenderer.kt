@@ -68,18 +68,24 @@ private fun String.escapeHtml(): String =
     decodeEntities()
         .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
+// \b after the tag name (instead of requiring whitespace) also catches
+// attribute-separator variants like <script/src=...> that HTML parsers accept.
+// Note this sanitizer is defense-in-depth only: the reader WebView has
+// JavaScript disabled and the template ships a default-src 'none' CSP, so a
+// bypass here must never be load-bearing.
 private val DANGEROUS_TAGS = Regex(
-    "<\\s*/?(script|iframe|object|embed|form|applet|link|meta|base|svg|math)(\\s[^>]*)?>",
+    "<\\s*/?(script|iframe|object|embed|form|applet|link|meta|base|svg|math)\\b[^>]*>",
     RegexOption.IGNORE_CASE
 )
 // Layout containers that trigger max-width/padding when nested inside the template's own <article>.
 // Stripping the tags preserves their inner content (unwrapping).
 private val LAYOUT_TAGS = Regex(
-    "<\\s*/?(article|section)(\\s[^>]*)?>",
+    "<\\s*/?(article|section)\\b[^>]*>",
     RegexOption.IGNORE_CASE
 )
+// Quoted or unquoted handler values — onerror=alert(1) without quotes is valid HTML.
 private val EVENT_HANDLERS = Regex(
-    "\\s+on\\w+\\s*=\\s*[\"'][^\"']*[\"']",
+    "\\s+on\\w+\\s*=\\s*(\"[^\"]*\"|'[^']*'|[^\\s>]+)",
     RegexOption.IGNORE_CASE
 )
 private val STYLE_URL = Regex(

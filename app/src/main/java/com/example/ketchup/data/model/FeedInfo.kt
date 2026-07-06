@@ -6,5 +6,6 @@ data class FeedInfo(
     val feedUrl: String,
     val siteUrl: String,
     val faviconUrl: String?,
-    val categoryLabel: String  // empty string = uncategorized
+    val categoryLabel: String,  // empty string = uncategorized
+    val isTitleCustomized: Boolean = false
 )

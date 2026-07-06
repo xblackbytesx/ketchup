@@ -12,8 +12,11 @@ They are independent tools and work perfectly well on their own, but together th
 
 ## Features
 
+- **RSS 2.0 and Atom** — works with any standard feed, plus media/content extensions (media:thumbnail, content:encoded, dc:creator, enclosures)
 - **Jetpack Compose UI** with Material 3 and OLED/dark/light/system theme support
 - **Offline-first** — articles are cached locally via Room; read without a connection
+- **Efficient sync** — HTTP conditional requests (ETag/Last-Modified) skip unchanged feeds
+- **Article retention** — configurable per-feed article cap; starred articles are always kept
 - **Featured layout** — optional hero card layout for a more magazine-like browsing experience
 - **Article reader** — full-screen WebView reader with auto-hiding bars, hero image, and full-content fetch
 - **Swipe navigation** — swipe left/right in the reader to move between articles
@@ -21,7 +24,6 @@ They are independent tools and work perfectly well on their own, but together th
 - **Star articles** — save articles for later reading
 - **PIN + biometric lock** — optional app lock with PBKDF2 PIN and fingerprint/face unlock
 - **Import/export** — back up and restore your feed list as JSON
-- Triggered on any `v*` tag push via GitHub Actions
 
 ## Screenshots
 

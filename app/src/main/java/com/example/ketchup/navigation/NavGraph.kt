@@ -2,6 +2,7 @@ package com.example.ketchup.navigation
 
 import androidx.fragment.app.FragmentActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -10,6 +11,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -46,6 +51,29 @@ fun KetchupNavGraph(app: KetchupApplication, activity: FragmentActivity) {
     }
 
     val start = startDestination ?: return
+
+    // Re-engage the lock when the app returns to the foreground past the
+    // timeout. The start destination handles cold starts; without this, an
+    // activity that survived in the background would go straight to content
+    // no matter how long ago the auth expired.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) {
+                app.expireAuthIfTimedOut()
+                val current = navController.currentDestination
+                if (current != null &&
+                    !current.hasRoute<LockRoute>() &&
+                    app.secureStorage.isPinConfigured() &&
+                    !app.isAuthenticated
+                ) {
+                    navController.navigate(LockRoute) { popUpTo(0) { inclusive = true } }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     NavHost(navController = navController, startDestination = start) {
         composable<SetupRoute> {

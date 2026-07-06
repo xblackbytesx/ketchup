@@ -8,6 +8,7 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.animation.AnimatedVisibility
@@ -210,6 +211,12 @@ fun ArticleReaderScreen(
                             displayZoomControls = false
                             loadWithOverviewMode = true
                             useWideViewPort = true
+                            // Content renders under an https base URL, so images
+                            // from cleartext (http) feeds count as mixed content
+                            // and would be blocked. Allowing it only exposes
+                            // image loads: JS is off and the template's CSP is
+                            // default-src 'none'.
+                            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                         }
                     }
                 },

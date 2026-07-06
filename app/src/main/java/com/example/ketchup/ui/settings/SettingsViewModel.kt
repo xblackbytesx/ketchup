@@ -18,6 +18,7 @@ data class SettingsUiState(
     val showReadArticles: Boolean = true,
     val featuredLayout: Boolean = false,
     val cacheTtlHours: Int = 24,
+    val retentionMaxArticles: Int = 200,
     val autoMarkRead: Boolean = false,
     val sortOrder: String = "newest_first",
     val fullscreen: Boolean = true,
@@ -41,6 +42,7 @@ class SettingsViewModel(private val app: KetchupApplication) : ViewModel() {
             showReadArticles = prefs.showReadArticles,
             featuredLayout = prefs.featuredLayout,
             cacheTtlHours = prefs.cacheTtlHours,
+            retentionMaxArticles = prefs.retentionMaxArticles,
             autoMarkRead = prefs.autoMarkRead,
             sortOrder = prefs.sortOrder,
             fullscreen = prefs.fullscreen,
@@ -70,6 +72,11 @@ class SettingsViewModel(private val app: KetchupApplication) : ViewModel() {
     fun setCacheTtlHours(hours: Int) {
         prefs.cacheTtlHours = hours
         _uiState.value = _uiState.value.copy(cacheTtlHours = hours)
+    }
+
+    fun setRetentionMaxArticles(count: Int) {
+        prefs.retentionMaxArticles = count
+        _uiState.value = _uiState.value.copy(retentionMaxArticles = count)
     }
 
     fun setAutoMarkRead(enabled: Boolean) {
@@ -166,18 +173,28 @@ class SettingsViewModel(private val app: KetchupApplication) : ViewModel() {
         }
     }
 
-    fun resetApp() {
-        storage.clearAll()
-        prefs.apply {
-            theme = "dark"
-            showReadArticles = true
-            featuredLayout = false
-            cacheTtlHours = 24
-            autoMarkRead = false
-            sortOrder = "newest_first"
-            fullscreen = true
-            showHeroImage = true
-            swipeNavigation = true
+    /**
+     * Full reset as the confirmation dialog promises: PIN/secure storage,
+     * preferences, and the entire local database (feeds, articles, fetched
+     * content). onComplete runs on the main thread once the wipe finished.
+     */
+    fun resetApp(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { repository.wipeAllData() }
+            storage.clearAll()
+            prefs.apply {
+                theme = "dark"
+                showReadArticles = true
+                featuredLayout = false
+                cacheTtlHours = 24
+                retentionMaxArticles = 200
+                autoMarkRead = false
+                sortOrder = "newest_first"
+                fullscreen = true
+                showHeroImage = true
+                swipeNavigation = true
+            }
+            onComplete()
         }
     }
 

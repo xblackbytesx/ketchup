@@ -23,6 +23,13 @@ interface FeedDao {
     @Query("DELETE FROM feeds WHERE id = :id")
     suspend fun deleteById(id: String)
 
-    @Query("UPDATE feeds SET title = :title, categoryLabel = :categoryLabel WHERE id = :id")
-    suspend fun updateTitleAndCategory(id: String, title: String, categoryLabel: String)
+    @Query("UPDATE feeds SET title = :title, categoryLabel = :categoryLabel, isTitleCustomized = :isTitleCustomized WHERE id = :id")
+    suspend fun updateTitleAndCategory(id: String, title: String, categoryLabel: String, isTitleCustomized: Boolean)
+
+    // Sync-driven title refresh; a no-op for feeds the user has renamed.
+    @Query("UPDATE feeds SET title = :title WHERE id = :id AND isTitleCustomized = 0")
+    suspend fun updateAutoTitle(id: String, title: String)
+
+    @Query("UPDATE feeds SET etag = :etag, lastModified = :lastModified WHERE id = :id")
+    suspend fun updateHttpValidators(id: String, etag: String?, lastModified: String?)
 }

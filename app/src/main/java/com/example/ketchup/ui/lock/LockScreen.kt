@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ketchup.KetchupApplication
 import com.example.ketchup.auth.BiometricHelper
 import com.example.ketchup.ui.components.PinInput
@@ -35,7 +36,9 @@ fun LockScreen(
     activity: FragmentActivity,
     onUnlocked: () -> Unit,
 ) {
-    val viewModel = remember { LockViewModel(app) }
+    // A real ViewModel (not remember {}) so it survives rotation and gets
+    // onCleared like every other screen's view model.
+    val viewModel: LockViewModel = viewModel(factory = LockViewModelFactory(app))
     val uiState by viewModel.uiState.collectAsState()
     val biometricHelper = remember { BiometricHelper(activity) }
 

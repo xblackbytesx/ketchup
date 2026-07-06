@@ -36,16 +36,21 @@ class FeedViewModel(private val app: KetchupApplication) : ViewModel() {
     val unreadCounts: StateFlow<Map<String, Int>> = repository.observeUnreadCountsByFeed()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
+    // Reactive so a sort-order change on the settings screen applies when the
+    // user comes back, not on the next filter change.
+    private val sortOrder: StateFlow<String> = prefs.observeSortOrder()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), prefs.sortOrder)
+
     fun setNavFilter(filter: NavFilter) {
         _navFilter.value = filter
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val uiState: StateFlow<FeedUiState> = combine(_navFilter, _showRead, feeds) { filter, showRead, allFeeds ->
+    val uiState: StateFlow<FeedUiState> = combine(_navFilter, _showRead, feeds, sortOrder) { filter, showRead, allFeeds, sort ->
         val feedIds = if (filter is NavFilter.ByCategory) {
             allFeeds.filter { it.categoryLabel == filter.label }.map { it.id }
         } else emptyList()
-        repository.observeArticlesByFilter(filter, showRead, feedIds)
+        repository.observeArticlesByFilter(filter, showRead, sort, feedIds)
     }.flatMapLatest { it }
         .map { articles -> FeedUiState.Success(articles, false) as FeedUiState }
         .combine(_isRefreshing) { state, refreshing ->
@@ -101,8 +106,11 @@ class FeedViewModel(private val app: KetchupApplication) : ViewModel() {
         }
     }
 
-    fun updateFeed(feedId: String, title: String, categoryLabel: String) {
-        viewModelScope.launch { repository.updateFeed(feedId, title, categoryLabel) }
+    fun updateFeed(feed: FeedInfo, title: String, categoryLabel: String) {
+        // A changed title means the user renamed the feed; sync stops
+        // auto-updating it from then on. Once customized, always customized.
+        val customized = feed.isTitleCustomized || title != feed.title
+        viewModelScope.launch { repository.updateFeed(feed.id, title, categoryLabel, customized) }
     }
 
     fun showAddFeedDialog() {
